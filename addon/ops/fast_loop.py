@@ -256,9 +256,10 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
             if self.current_edge is not None and event.type in {'LEFTMOUSE'} and event.value == 'PRESS':
                 if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)):
-                    self.create_geometry(context)
-
-                    if utils.common.prefs().set_edge_flow_enabled:
+                    if not event.shift:
+                        self.create_geometry(context)
+                    elif event.shift:
+                        self.create_geometry(context, set_edge_flow=True)
                         self.set_flow()
 
                 elif mode_enabled(Mode.REMOVE_LOOP):
