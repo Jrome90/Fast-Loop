@@ -310,8 +310,9 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         if not event.alt and mode_enabled(Mode.EDGE_SLIDE):
             if self.prev_mode is not None:
                 set_mode(self.prev_mode)
-            bpy.ops.ed.undo_push()
-            return {'RUNNING_MODAL'}
+                bpy.ops.ed.undo_push()
+            else:
+                set_mode(Mode.SINGLE)
 
         elif event.alt and not mode_enabled(Mode.EDGE_SLIDE):
             self.prev_mode = get_active_mode()
