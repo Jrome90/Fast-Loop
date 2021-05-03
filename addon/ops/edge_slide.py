@@ -164,9 +164,14 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
                     selected_verts = [vert for vert in bm.verts if vert.select]
                     
                     vert = self.get_nearest_vert(selected_verts, mouse_coords)
-                    self.nearest_vert = vert
-                    self.nearest_vert_co = vert.co.copy()
-                    self.clear_draw()
+                    if vert is not None:
+                        self.nearest_vert = vert
+                        self.nearest_vert_co = vert.co.copy()
+                        self.clear_draw()
+                    else:
+                        self.report({'INFO'}, 'Please select an edge before using.')
+                        return {'RUNNING_MODAL'}
+
                     if not self.is_sliding:
                     
                         self.active_axis = event.type
@@ -193,6 +198,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
 
         elif not self.invoked_by_op and event.type == btn('RIGHTMOUSE') and event.value == 'PRESS':
             self.finished(context)
+            context.area.tag_redraw()
             return {'FINISHED'}
         
         if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'MOUSEMOVE'}:
@@ -221,7 +227,6 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
                         self.edge_slide(context, mouse_coords, even, keep_shape)
                     else:                    
                         self.edge_constraint_slide(context, mouse_coords, self.axis_vec, self.world_mat)
-                handled = True
 
             if event.type == btn('LEFTMOUSE') and event.value == 'RELEASE' and self.is_sliding:
                 self.slide_verts.clear()
@@ -234,7 +239,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
                     self.mode = Mode.EDGE_SLIDE
                     bpy.ops.ed.undo_push()
 
-                handled = True
+            handled = True
             
         context.area.tag_redraw()
         if handled:
@@ -328,7 +333,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
         if nearest_vert is not None:
             return nearest_vert
 
-        return None, None
+        return None
 
     # Modified blender source code implementation to calculate the edges to slide one. 
     # Does not support Ngons or verts with a valence > 4. 
