@@ -205,21 +205,16 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         elif self.is_scaling:
             pass 
         
-        if event.type in {'S', 'M', 'N', 'E', 'F', 'I', 'L', 'G'} and not (event.ctrl or event.alt):
+        handled = False
+        if event.type in {'M', 'E', 'F', 'S', 'R'} and not (event.ctrl or event.alt):
 
-            if event.type == 'S' and event.value == 'PRESS':
-                set_mode(Mode.SINGLE)
-
-            elif event.type == 'M' and event.value == 'PRESS':
+            if event.type == 'M' and event.value == 'PRESS':
                 set_mode(Mode.MIRRORED)
-            
-            elif event.type == 'N' and event.value == 'PRESS':
-                set_mode(Mode.MULTI_LOOP)
 
             elif event.type == 'E' and event.value == 'PRESS':
                 self.use_even = not self.use_even
 
-            elif event.type == 'F' and event.value == 'PRESS':
+            elif event.type == 'R' and event.value == 'PRESS':
                 self.flipped = not self.flipped
                 if self.use_snap_points and  self.snap_divisions == 1:
                     if self.flipped :
@@ -227,15 +222,38 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     else:
                         self.snap_factor = 100 - self.snap_factor
 
-            elif event.type == 'I' and event.value == 'PRESS':
+            elif event.type == 'S' and event.value == 'PRESS':
                 self.use_snap_points = not self.use_snap_points
 
-            elif event.type == 'L' and event.value == 'PRESS':
+            elif event.type == 'F' and event.value == 'PRESS':
                 self.lock_snap_points = not self.lock_snap_points
+            handled = True
+        elif event.type in {'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'} and event.value == 'PRESS':
+            num_lookup = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5, 'SIX': 6, 'SEVEN': 7, 'EIGHT': 8, 'NINE': 9}
+            n = num_lookup[event.type]
+            if n == 1:
+                set_mode(Mode.SINGLE)
+            else:
+                set_mode(Mode.MULTI_LOOP)
+
+            self.segments = n
+            handled = True
+        
+        elif event.type in {'EQUAL', 'NUMPAD_PLUS', 'MINUS', 'NUMPAD_MINUS'} and event.value == 'PRESS':
+            if event.type in {'EQUAL', 'NUMPAD_PLUS'}:
+                self.segments += 1
+            else:
+                self.segments -= 1
+
+            if self.segments == 1:
+                set_mode(Mode.SINGLE)
+            else:
+                set_mode(Mode.MULTI_LOOP)
+            handled = True
 
         elif event.type in {'ESC'}:
             set_option('cancel', True)
-            return {'RUNNING_MODAL'}
+            handled = True
 
         if event.ctrl and event.type == 'Z' and event.value == 'PRESS':
                 prev_use_snap_points = self.use_snap_points
@@ -249,8 +267,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     self.use_snap_points = True
                 if prev_lock_snap_points:
                    self.lock_snap_points = True
-
-                return {'RUNNING_MODAL'}
+                handled = True
 
         if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'}:
 
@@ -268,29 +285,32 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 elif mode_enabled(Mode.SELECT_LOOP):
                     self.select_edge_loop(context)
                     self.is_selecting = True
-
                 bpy.ops.ed.undo_push()
 
+                handled = True
             if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
                 if utils.ui.inside_view_3d((event.mouse_x, event.mouse_y)):
                     # Preemptively lock the points to prevent them from changing locations after the lock_points property is set to True.
                     # This is okay to do because they will be unlocked in update_snap_context() if the property is set to False.
                     self.snap_context.lock_snap_points
                     bpy.ops.wm.call_menu_pie(name="FL_MT_FastLoop_Pie")
-                    return {'RUNNING_MODAL'}
+                    handled = True
 
         if event.type in {'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
-            if not event.ctrl and mode_enabled(Mode.MULTI_LOOP):
+            if event.ctrl:               
                 self.segments += 1 if event.type == 'WHEELUPMOUSE' else - 1
-                
-                self.update(nearest_co)
+                if self.segments == 1:
+                    set_mode(Mode.SINGLE)
+                else:
+                    set_mode(Mode.MULTI_LOOP)
+                self.update()
+                handled = True
             else:
-                delta = 1 if event.type == 'WHEELUPMOUSE' else - 1
-                bpy.ops.view3d.zoom(delta=delta)
+                context.area.tag_redraw()
 
         if event.type == 'MOUSEMOVE':
 
-            if self.is_scaling and not event.alt and not mode_enabled(Mode.REMOVE_LOOP):
+            if self.is_scaling and not event.alt and mode_enabled(Mode.MULTI_LOOP) and not mode_enabled(Mode.REMOVE_LOOP):
                 delta_x = event.mouse_x - self.start_mouse_pos_x
                 self.scale += delta_x * 0.01
             
@@ -314,22 +334,20 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 bpy.ops.ed.undo_push()
             else:
                 set_mode(Mode.SINGLE)
-
+            handled = True
         elif event.alt and not mode_enabled(Mode.EDGE_SLIDE):
             self.prev_mode = get_active_mode()
             set_mode(Mode.EDGE_SLIDE)
             bpy.ops.fl.edge_slide('INVOKE_DEFAULT', invoked_by_op=True)
+            handled = True
 
-        if event.type == 'MIDDLEMOUSE':
-            return {'PASS_THROUGH'}
-
-        if self.current_edge is None and event.type not in {'S', 'M', 'N', 'E', 'F', 'I', 'L', 'G'}:
-            return {'PASS_THROUGH'}
 
         self.set_header(context)
         context.area.tag_redraw()
-        return {'RUNNING_MODAL'}
-
+        if handled:
+            return {'RUNNING_MODAL'}
+        else:
+            return {'PASS_THROUGH'}
 
     def cleanup(self, context):
         super().cleanup(context)
@@ -349,12 +367,14 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.current_position = self.world_inv @ nearest_co
 
         if self.current_ring:
-            if not self.bm.is_valid:
-                
-                print("loop is not valid")
+            if not self.bm.is_valid:         
                 return
+
             if not self.is_scaling:
                 self.ring_loops = self.calc_edge_directions()
+
+        if mode_enabled(Mode.MULTI_LOOP) and self.segments == 1:
+            self.segments = 2
 
         self.update_positions_along_edges()
 
@@ -390,16 +410,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 
             self.snap_context.set_snap_factor(self.snap_factor)
             set_option('dirty', False)
-        
-
-    # def draw_callback_2d(self, context):
-    #     font_id = 0
-    #     blf.position(font_id, 15, 30, 0)
-    #     blf.size(font_id, 20, 72)
-    #     blf.draw(font_id, context.object.name)
-
-    # def draw_callback_3d(self, context):
-    #     self.draw_3d(context)
 
  
     def create_geometry(self, context, set_edge_flow=False):
@@ -552,7 +562,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                             
                             #Make insides even?
                             scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-            
                             scale = scale_point_along_edge(pos, start, end, scale_factor)
                             final = scale + (origin - ((start + end) * 0.5))
                         else:

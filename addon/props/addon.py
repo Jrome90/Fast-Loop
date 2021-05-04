@@ -73,9 +73,9 @@ class FL_Options(bpy.types.PropertyGroup):
     segments: bpy.props.IntProperty(
         name='Segments',
         description='Number segments when multi loop is active',
-        default=3,
+        default=1,
         soft_max=10,
-        min=2,
+        min=1,
         max=100,
     )
 
