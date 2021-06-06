@@ -8,6 +8,7 @@ from mathutils import Matrix, Vector
 from mathutils.geometry import intersect_point_line, intersect_line_plane
 
 from .. import utils
+from .. utils.observer import Subject
 from .. utils.ops import get_m_button_map as btn
 from . edge_constraint import EdgeConstraint_Translation, edge_constraint_status, get_valid_orientation
 
@@ -19,11 +20,9 @@ class EdgeVertexSlideData():
     vert_orig_co: Vector = None
     vert_side: List[BMVert] = field(default_factory=lambda: [None, None])
     dir_side: List[Vector] =  field(default_factory=lambda: [None, None])
-
-    # Only used with edge contraints.
     edge_len: List[float] = field(default_factory=lambda: [None, None])
-   
-
+    
+    freeze_vert = False
     def __repr__(self) -> str:
         vert_side_a = self.vert_side[0].index if self.vert_side[0] is not None else None
         vert_side_b = self.vert_side[1].index if self.vert_side[1] is not None else None
@@ -39,17 +38,19 @@ class Mode(Enum):
     PASS_THROUGH = 3
 
 
-class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
+class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject):
     bl_idname = 'fl.edge_slide'
     bl_label = 'edge slide'
     bl_options = {'REGISTER'}
 
-    invoked_by_op: bpy.props.BoolProperty(
-        name='op invoked',
+    _listeners  = {}
+
+    restricted: bpy.props.BoolProperty(
+        name='restricted',
         description='Do not change. This is meant to be hidden',
         default=False,
         options={'HIDDEN', 'SKIP_SAVE'}
-    )   
+    )  
 
     mode = Mode.EDGE_SLIDE
     is_sliding = False
@@ -83,10 +84,16 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
     def set_status(self, context):
         def status(header, context):
             layout = header.layout
-            layout.label(text="Even Edge Loop", icon='EVENT_CTRL')
-            layout.label(text="Preserve Loop Shape", icon='EVENT_SHIFT')
+            if self.mode == Mode.EDGE_SLIDE:
+                layout.label(text="Even Edge Loop", icon='EVENT_CTRL')
+                layout.label(text="Preserve Loop Shape", icon='EVENT_SHIFT')
 
-            if not self.invoked_by_op:
+                if utils.common.prefs().use_spacebar:
+                   layout.label(text="Exit", icon='EVENT_SPACEKEY') 
+
+            if not self.restricted:
+                if self.mode == Mode.EDGE_CONSTRAINT:
+                    layout.label(text="Disable Constrain to Bounding Edges", icon='EVENT_SHIFT')
                 edge_constraint_status(layout)
             utils.ui.statistics(header, context)
 
@@ -107,7 +114,6 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
         
 
     def invoke(self, context, event):
- 
         self.report({'INFO'}, 'Edge Slide Started')
         self.set_status(context)
         self.setup(context)
@@ -123,14 +129,18 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
         self.clear_draw()
         bpy.context.window.cursor_modal_restore()
         context.workspace.status_text_set(None)
-        self.report({'INFO'}, 'Edge Slide Finished')
 
+        context.area.tag_redraw()
+        #self.report({'INFO'}, 'Edge Slide Finished')
 
         if getattr(self, 'draw_handler_2d', None):
             self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_2d, 'WINDOW')
 
         if getattr(self, 'draw_handler_3d', None):
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_3d, 'WINDOW')
+
+        self.notify_listeners()
+        return {'FINISHED'}
     
     def clear_draw(self):
         self.axis_draw_points.clear()
@@ -139,10 +149,17 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
 
     def modal(self, context, event):
         
-        if not self.invoked_by_op and event.ctrl and event.type == 'Z' and event.value == 'PRESS':
+        if not self.restricted and event.ctrl and event.type == 'Z' and event.value == 'PRESS':
+            if self.is_sliding and self.mode == Mode.EDGE_CONSTRAINT:
+                self.is_sliding = False
+                self.mode = Mode.EDGE_SLIDE
+                
             return {'PASS_THROUGH'}
+
+        self.set_status(context)
+
         handled = False
-        if not self.invoked_by_op and not event.ctrl and event.type in {'X', 'Y', 'Z', 'S'} and event.value == 'PRESS':
+        if not self.restricted and not event.ctrl and event.type in {'X', 'Y', 'Z', 'S'} and event.value == 'PRESS':
             if event.type == 'S':
                 if not self.mode == Mode.PASS_THROUGH:
                     self.mode = Mode.PASS_THROUGH
@@ -182,6 +199,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
 
                         self.is_sliding = True
                         self.mode = Mode.EDGE_CONSTRAINT
+                        bpy.ops.ed.undo_push()
 
                     elif self.is_sliding and self.mode == Mode.EDGE_CONSTRAINT:
                         self.is_sliding = False
@@ -192,26 +210,27 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
         if self.mode == Mode.PASS_THROUGH:
             return {'PASS_THROUGH'}
 
-        if not event.alt and self.invoked_by_op:
-            self.finished(context)
-            return {'FINISHED'}
-
-        elif not self.invoked_by_op and event.type == btn('RIGHTMOUSE') and event.value == 'PRESS':
-            self.finished(context)
-            context.area.tag_redraw()
-            return {'FINISHED'}
+        if not utils.common.prefs().use_spacebar:
+            if not event.alt and self.restricted:
+                return self.finished(context)
+        else:
+            if event.type == 'SPACE' and event.value == 'PRESS':
+                return self.finished(context)
+                
+        if not self.restricted and event.type == btn('RIGHTMOUSE') and event.value == 'PRESS':
+            return self.finished(context)
         
         if event.type in {'LEFTMOUSE', 'RIGHTMOUSE', 'MOUSEMOVE'}:
 
-            if not self.mode == Mode.EDGE_CONSTRAINT and event.type == btn('LEFTMOUSE') and event.value == 'PRESS' and not self.is_sliding:
+            if self.mode != Mode.EDGE_CONSTRAINT and event.type == btn('LEFTMOUSE') and event.value == 'PRESS' and not self.is_sliding:
                 self.ensure_bmesh()
                 utils.mesh.ensure(self.bm)
                 mouse_coords = (event.mouse_region_x, event.mouse_region_y)
                 vert, edge = self.get_nearest_vert_and_edge(mouse_coords)
                 if vert is not None:
                     self.nearest_vert = vert
-                    self.slide_verts =  self.calculate_edge_slide_directions(edge)
-                    self.ss_slide_directions =  self.calculate_screen_space_slide_directions(edge, mouse_coords)
+                    self.slide_verts = self.calculate_edge_slide_directions(edge)
+                    self.ss_slide_directions = self.calculate_screen_space_slide_directions(edge, mouse_coords)
                     self.is_sliding = True
                 else:
                     self.report({'INFO'}, 'Please select an edge before using.')
@@ -235,12 +254,16 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
                 self.is_sliding = False
                 self.axis_draw_points.clear()
                 self.points_2d = None
-                if not self.invoked_by_op:
+                
+                if not self.restricted:
                     self.mode = Mode.EDGE_SLIDE
                     bpy.ops.ed.undo_push()
 
             handled = True
-            
+        
+        if super().modal(context, event):
+            handled = True
+           
         context.area.tag_redraw()
         if handled:
             return {'RUNNING_MODAL'}
@@ -427,45 +450,56 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
 
         condition = True
         while condition:
-   
-            slide_verts[v.index] = EdgeVertexSlideData()
-            sv: EdgeVertexSlideData = slide_verts[v.index]
-            sv.vert = v
-            sv.vert_orig_co = v.co.copy()
-
-
-            if l_a is not None or l_a_prev is not None:
-                l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_a if l_a is not None else l_a_prev, v)
-                sv.vert_side[0] = l_tmp.edge.other_vert(v)
-                sv.dir_side[0] = vec_a.normalized()
-                sv.edge_len[0] = vec_a.length
+            skip  = False
+            if len(v.link_edges) > 4 and not any([edge.is_boundary for edge in v.link_edges]):
+                skip = True
             
-            if l_b is not None or l_b_prev is not None:
-                l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_b if l_b is not None else l_b_prev, v)
-                sv.vert_side[1] = l_tmp.edge.other_vert(v)
-                sv.dir_side[1] = vec_b.normalized()
-                sv.edge_len[1] = vec_b.length
-            
-            v = edge.other_vert(v)
-            edge = get_next_edge(v, edge, edges)     
-            if edge is None:
-
+            if not skip:
                 slide_verts[v.index] = EdgeVertexSlideData()
                 sv: EdgeVertexSlideData = slide_verts[v.index]
                 sv.vert = v
                 sv.vert_orig_co = v.co.copy()
 
-                if l_a is not None:
-                    l_tmp = utils.mesh.get_loop_other_edge_loop(l_a, v)
+
+            if l_a is not None or l_a_prev is not None:
+                if not skip:
+                    l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_a if l_a is not None else l_a_prev, v)
                     sv.vert_side[0] = l_tmp.edge.other_vert(v)
-                    sv.dir_side[0] =  sv.vert_side[0].co - v.co
-                    sv.edge_len[0] = sv.dir_side[0].length
+                    sv.dir_side[0] = vec_a.normalized()
+                    sv.edge_len[0] = vec_a.length
+            
+            if l_b is not None or l_b_prev is not None:
+                if not skip:
+                    l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_b if l_b is not None else l_b_prev, v)
+                    sv.vert_side[1] = l_tmp.edge.other_vert(v)
+                    sv.dir_side[1] = vec_b.normalized()
+                    sv.edge_len[1] = vec_b.length
+            
+            v = edge.other_vert(v)
+            edge = get_next_edge(v, edge, edges)     
+            if edge is None:
+                skip = False
+                if len(v.link_edges) > 4 and not any([edge.is_boundary for edge in v.link_edges]):
+                    skip = True
+                if not skip:
+                    slide_verts[v.index] = EdgeVertexSlideData()
+                    sv: EdgeVertexSlideData = slide_verts[v.index]
+                    sv.vert = v
+                    sv.vert_orig_co = v.co.copy()
+
+                if l_a is not None:
+                    if not skip:
+                        l_tmp = utils.mesh.get_loop_other_edge_loop(l_a, v)
+                        sv.vert_side[0] = l_tmp.edge.other_vert(v)
+                        sv.dir_side[0] =  sv.vert_side[0].co - v.co
+                        sv.edge_len[0] = sv.dir_side[0].length
 
                 if l_b is not None:
-                    l_tmp = utils.mesh.get_loop_other_edge_loop(l_b, v)
-                    sv.vert_side[1] = l_tmp.edge.other_vert(v)
-                    sv.dir_side[1] =  sv.vert_side[1].co - v.co
-                    sv.edge_len[1] = sv.dir_side[1].length
+                    if not skip:
+                        l_tmp = utils.mesh.get_loop_other_edge_loop(l_b, v)
+                        sv.vert_side[1] = l_tmp.edge.other_vert(v)
+                        sv.dir_side[1] =  sv.vert_side[1].co - v.co
+                        sv.edge_len[1] = sv.dir_side[1].length
                 break 
 
             l_a_prev = l_a
@@ -473,7 +507,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
 
             if l_a is not None:
                 l_a, vec_a = get_slide_edge(l_a, edge, v)
-     
+    
             else:
                 vec_a = Vector()
             
@@ -510,7 +544,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
         if slide_data is not None:
             for other_vert in slide_data.vert_side:
                 if other_vert is not None:
-                    other_co_2d = utils.math.location_3d_to_2d(self.world_mat @  other_vert.co)
+                    other_co_2d = utils.math.location_3d_to_2d(self.world_mat @ other_vert.co)
                     slide_vecs.append((other_co_2d - nearest_co_2d))
 
         return slide_vecs
@@ -545,8 +579,9 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
                         min_dist_sq = dist_sq
                         closest_vec = vec
 
-        tmp_vec = o + tmp_vec
+        
         if closest_vec is not None:
+            tmp_vec = o + tmp_vec
             if not self.nearest_vert.is_valid:
                 return
             nearest_vert_slide_data = self.slide_verts.get(self.nearest_vert.index, None)
@@ -582,8 +617,6 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation):
                             plane_isect = intersect_line_plane(o_co, dir, offset, dir_vec_norm)
                             if plane_isect is not None:
                                 vert.co = plane_isect
-                            # else:
-                            #     print("Plane isect is none")
                         else:
                             vert.co = o_co.lerp(dir, lambda_)
 

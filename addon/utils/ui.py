@@ -1,4 +1,5 @@
 import bpy
+from . import common
 from .. import ui
 
 
@@ -30,6 +31,24 @@ def statistics(header, context):
 
         text = context.scene.statistics(context.view_layer)
         layout.label(text=text, translate=False)
+
+def add_shortcut_info(keymap, text_box, icons_box):
+    m_buttons = ['MOUSE_LMB', 'MOUSE_RMB']
+
+    for text, icons in keymap.items():
+        text_box.label(text=text)
+        icon_row = icons_box.row()
+        icon_row.alignment = 'LEFT'
+        
+        for icon in icons:
+            if icon in {'MOUSE_LMB', 'MOUSE_RMB'}:
+                i = m_buttons.index(icon) 
+                if common.prefs().use_rcs:
+                    icon = m_buttons[i-1]
+
+            icon_row.label(icon=icon)
+
+        icon_row.scale_x = len(icons) * 0.15
 
 def get_ui_scale():
     return bpy.context.preferences.system.ui_scale

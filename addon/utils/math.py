@@ -25,15 +25,6 @@ def closest_to_line(point, vec_a, vec_b)-> Vector:
 
     return (o + d * lambda_), -lambda_
 
-
-# def line_point_factor_2d(point:Vector, vec_a: Vector, vec_b: Vector):
-#     assert(len(vec_a) == 2 and len(vec_b) == 2 and len(point) == 2)
-#     d: Vector = vec_b - vec_a
-#     c: Vector = point - vec_a
-    
-#     l = d.length_squared 
-#     return d.dot(c) / l
-
 def project_point_plane(point: Vector, plane_n: Vector):
     """ Project a point onto the plane.
 

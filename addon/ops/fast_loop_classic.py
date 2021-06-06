@@ -3,21 +3,8 @@ from bmesh.types import *
 
 from .. import utils
 from .. utils.ops import get_m_button_map as btn
-from . fast_loop_common import FastLoopCommon, Mode, mode_enabled, set_mode
+from . fast_loop_common import FastLoopCommon, EdgeData, Mode, mode_enabled, set_mode
 from .. snapping.snapping import SnapContext
-
-
-class EdgeData():
-    """Stores the points and starting vert for an edge.
-
-    Attributes:
-        points: Points along an edge.
-        loop: The loop for this edge.
-    """
-    def __init__(self, points, loop):
-        self.points = points
-        self.edge = loop.edge
-        self.first_vert = loop.vert
 
 
 class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
@@ -49,24 +36,39 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         )
 
         context.area.header_text_set(header)
+    
+      
+    def set_status(self, context):
+
+        def status(header, context):
+            shortcuts= [
+                        {"Insert Loop": ['MOUSE_LMB']},
+                        {"Even": ['EVENT_E']},
+                        {"Flipped": ['EVENT_R']},
+                    ]
+
+            header = utils.ops.generate_status_layout(shortcuts, header.layout)       
+            utils.ui.statistics(header, context)
+
+        context.workspace.status_text_set(status)
+
 
     def draw(self, context):
         pass
 
+
     def execute(self, context):
         return {'FINISHED'}
 
+
+    def setup(self, context):
+        self.set_status(context)          
+        super().setup(context)     
+
+
     def invoke(self, context, event):
-        if self.is_running or self.cancelled:
-            return {"CANCELLED"}
-        self.setup(context)
-        self.is_classic = True
         set_mode(Mode.SINGLE)
-
-        self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self.draw_3d, (context, ), 'WINDOW', 'POST_VIEW')
-        context.window_manager.modal_handler_add(self)
-
-        return {'RUNNING_MODAL'}
+        return  super().invoke(context, event)
     
 
     def modal(self, context, event):
@@ -75,6 +77,9 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         or self.cancelled:
             return self.cancel(context)
 
+        if mode_enabled(Mode.EDGE_SLIDE):
+            return {'PASS_THROUGH'}
+
         if self.snap_context is None:
             self.snap_context: SnapContext = SnapContext.get(context, context.evaluated_depsgraph_get(), context.space_data, context.region)
             self.snap_context.add_object(self.active_object)
@@ -82,91 +87,32 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         if self.snap_context is not None and (not mode_enabled(Mode.EDGE_SLIDE)) or mode_enabled(Mode.REMOVE_LOOP): 
 
             mouse_coords = (event.mouse_region_x, event.mouse_region_y)
-            element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
+            _ , element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
 
             if element_index is not None:
-                
-                bm: BMesh = self.ensure_bmesh()
-                bm.edges.ensure_lookup_table()
-                edge = bm.edges[element_index]
-            
-                if edge.is_valid:
-                    self.current_edge = edge
-                    self.current_edge_index = edge.index
-
-                    if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
-                        self.current_ring = list(utils.mesh.bmesh_edge_ring_walker(self.current_edge))
-                        self.update(nearest_co)
-
-                    elif mode_enabled(Mode.REMOVE_LOOP):
-                        self.remove_loop_draw_points = self.compute_remove_loop_draw_points()
+              self.update(element_index, nearest_co)
             else:
                 self.current_edge = None
                 
         handled = False
-        if event.type in {'E', 'F'} and not (event.ctrl or event.alt):
+        if event.type in {'E', 'R'} and not (event.ctrl or event.alt):
 
             if event.type == 'E' and event.value == 'PRESS':
                 self.use_even = not self.use_even
 
-            elif event.type == 'F' and event.value == 'PRESS':
+            elif event.type == 'R' and event.value == 'PRESS':
                 self.flipped = not self.flipped
             handled = True
-
-        elif not event.alt and mode_enabled(Mode.EDGE_SLIDE):
-            set_mode(Mode.SINGLE)
-            bpy.ops.ed.undo_push()
-            handled = True
-
-        elif event.alt and not mode_enabled(Mode.EDGE_SLIDE):
-
-            set_mode(Mode.EDGE_SLIDE)
-            bpy.ops.fl.edge_slide('INVOKE_DEFAULT', invoked_by_op=True)          
-            handled = True      
 
         elif event.type in {'ESC'}:
             self.cancelled = True
             handled = True
 
-        if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'}:
-            if self.current_edge is not None and event.type in {btn('LEFTMOUSE')} and event.value == 'PRESS':
-                if mode_enabled(Mode.SINGLE):
-                    if not event.shift:
-                        self.create_geometry(context)
+        if event.type in {btn('RIGHTMOUSE')} and event.value == 'PRESS':
+            self.cancelled = True
+            return {'RUNNING_MODAL'}
 
-                    elif event.shift and not event.ctrl:
-                        self.create_geometry(context, True)
-                        self.set_flow()
-
-                elif mode_enabled(Mode.SELECT_LOOP):
-                    self.select_edge_loop(context)
-
-                elif mode_enabled(Mode.REMOVE_LOOP):
-                    self.remove_edge_loop(context)
-                    context.area.tag_redraw()
-                    
-                bpy.ops.ed.undo_push()
-                handled = True
-            elif event.type in {btn('RIGHTMOUSE')} and event.value == 'PRESS':
-                self.cancelled = True
-                return {'RUNNING_MODAL'}
-                        
-        if event.ctrl and event.type in {'RIGHT_SHIFT', 'LEFT_SHIFT'}:
-            set_mode(Mode.REMOVE_LOOP)
-            context.area.tag_redraw()
-            handled = True
-
-        if event.type not in {'RIGHT_SHIFT', 'LEFT_SHIFT'} and not event.ctrl and mode_enabled(Mode.REMOVE_LOOP):
-           set_mode(Mode.SINGLE)
-           handled = True
-
-        if event.ctrl and not (mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.REMOVE_LOOP)) and not mode_enabled(Mode.EDGE_SLIDE):
-            set_mode(Mode.SELECT_LOOP)
-            context.area.tag_redraw()
-            handled = True
-
-        elif not event.ctrl and mode_enabled(Mode.SELECT_LOOP):
-            set_mode(Mode.SINGLE)
+        if super().modal(context, event):
             handled = True
 
         self.set_header(context)
@@ -178,11 +124,29 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
             return {'PASS_THROUGH'}
 
 
+    def edge_slide_finished(self):    
+        set_mode(Mode.SINGLE)
+        bpy.ops.ed.undo_push()
+
+
+    def modal_select_edge_loop_released(self):
+        set_mode(Mode.SINGLE)
+
+
+    def modal_remove_edge_loop_released(self):
+        set_mode(Mode.SINGLE)
+
+
     def cleanup(self, context):
         super().cleanup(context)
+
+    
+    def update_current_ring(self):
+        self.current_ring = list(utils.mesh.bmesh_edge_ring_walker(self.current_edge))
+        return True
     
 
-    def update(self, nearest_co=None):
+    def update_loops(self, nearest_co=None):
 
         if self.current_edge is None:
             return
@@ -194,16 +158,17 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
             if not self.bm.is_valid:
                 return
 
-            self.ring_loops = self.calc_edge_directions()
-
-        self.update_positions_along_edges()
+            self.distance, self.shortest_edge_len, self.edge_start_position, self.edge_end_position, self.is_loop = self.get_data_from_edge_ring()
 
     def update_positions_along_edges(self):
 
         self.loop_draw_points.clear()
         self.edge_data.clear()
             
-        for i, loop in enumerate(self.ring_loops.keys()):
+        for i, loop in enumerate(self.current_ring):
+
+            if not loop.is_valid:
+                return False
 
             points_on_edge = []
             for point_on_edge in self.get_posititon_along_edge(loop, i):
@@ -211,6 +176,8 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
 
             self.edge_data.append(EdgeData(points_on_edge, loop))
             self.loop_draw_points.append(points_on_edge)
+        
+        return True
 
  
     def create_geometry(self, context, set_edge_flow=False):
@@ -224,7 +191,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         flipped = self.flipped
         points = [data.points if not flipped else list(reversed(data.points)) for data in self.edge_data]
         
-        super().create_geometry(context, edges, points, edge_verts_co, num_segments, set_edge_flow)
+        super().create_geometry(context, edges, points, edge_verts_co, num_segments, select_edges=set_edge_flow)
 
     
     def get_posititon_along_edge(self, loop: BMLoop, i):
@@ -235,7 +202,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         if not loop.edge.is_manifold and not opposite_edge.is_manifold and loop.edge.index != self.current_edge.index:
             flipped = not flipped
 
-        # Edge is not manifold, being moused over,  and it's the first edge in teh list
+        # Edge is not manifold, being moused over, and it's the first edge in teh list
         elif not loop.edge.is_manifold and loop.edge.index == self.current_edge.index and i == 0:
             if opposite_edge.is_manifold:
                 flipped = not flipped

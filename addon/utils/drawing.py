@@ -7,7 +7,7 @@ from gpu_extras.batch import batch_for_shader
 from gpu_extras import presets
 from struct import pack
 
-from . import ui
+from . import ui, common
 
 COLOR_POINT = (1.0, 1.0, 0.0, 1)
 COLOR_LINE = (0.5, 0.5, 1, 1)
@@ -26,23 +26,39 @@ def draw_points(points, color=(1.0, 1.0, 0.0, 1), size=3.0):
 
     batch.draw(shader)
 
-def draw_line_loop(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
+def draw_line_loop(points, line_color=(0.0, 1.0, 0.5, 0.9), line_width=1.0):
     ui_scale = ui.get_ui_scale()
     bgl.glLineWidth(line_width * ui_scale)
+
+    r, g, b, a = line_color
+
+    if common.prefs().occlude_lines:
+        bgl.glEnable(bgl.GL_DEPTH_TEST)
+        bgl.glDepthFunc(bgl.GL_LEQUAL)
+
+    bgl.glEnable(bgl.GL_BLEND) if a < 1 else bgl.glDisable(bgl.GL_BLEND)
+
+    if a < 1:
+        bgl.glEnable(bgl.GL_LINE_SMOOTH)
+
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     batch = batch_from_points(points, 'LINE_LOOP', shader)
     
     shader.bind()
     color = shader.uniform_from_name("color")
-    r, g, b, a = line_color
     shader.uniform_vector_float(color, pack("4f", r, g, b, a), 4)
     batch.draw(shader)
 
-def draw_line(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
+def draw_line(points, line_color=(0.0, 1.0, 0.5, 0.9), line_width=1.0):
     ui_scale = ui.get_ui_scale()
     bgl.glLineWidth(line_width * ui_scale)
 
     r, g, b, a = line_color
+
+    if common.prefs().occlude_lines:
+        bgl.glEnable(bgl.GL_DEPTH_TEST)
+        bgl.glDepthFunc(bgl.GL_LEQUAL)
+
     bgl.glEnable(bgl.GL_BLEND) if a < 1 else bgl.glDisable(bgl.GL_BLEND)
 
     if a < 1:
@@ -60,7 +76,7 @@ def draw_line(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
 
 
 def draw_lines(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
-    indices = [(i, i+1) for i in range(0, len(points))]
+    indices = [(i, i+1) for i in range(0, len(points)-1)]
     ui_scale = ui.get_ui_scale()
     bgl.glLineWidth(line_width * ui_scale)
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
@@ -69,6 +85,16 @@ def draw_lines(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
     shader.bind()
     color = shader.uniform_from_name("color")
     r, g, b, a = line_color
+
+    if common.prefs().occlude_lines:
+        bgl.glEnable(bgl.GL_DEPTH_TEST)
+        bgl.glDepthFunc(bgl.GL_LEQUAL)
+
+    bgl.glEnable(bgl.GL_BLEND) if a < 1 else bgl.glDisable(bgl.GL_BLEND)
+
+    if a < 1:
+        bgl.glEnable(bgl.GL_LINE_SMOOTH)
+
     shader.uniform_vector_float(color, pack("4f", r, g, b, a), 4)
     batch.draw(shader)
 

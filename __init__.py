@@ -17,9 +17,9 @@ bl_info = {
     'author': 'Jrome',
     'description': 'Fast Loop',
     'blender': (2, 91, 0),
-    'version': (0, 0, 8),
+    'version': (0, 0, 9),
     'category': 'Mesh',
-    'location': 'Mesh > Edge > Connect Edges',
+    #'location': 'Mesh > Edge > Connect Edges',
 }
 
 

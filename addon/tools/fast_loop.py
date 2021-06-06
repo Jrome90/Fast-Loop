@@ -2,7 +2,7 @@ import os
 import bpy
 
 from ... addon import utils
-
+from .. ui.ui import DrawFastLoopUI
 
 class FL_ToolBase(bpy.types.WorkSpaceTool):
     bl_space_type='VIEW_3D'
@@ -15,25 +15,24 @@ class FL_ToolBase(bpy.types.WorkSpaceTool):
         region_type = context.region.type
 
         if region_type == 'UI' :
-            cls.draw_settings_ui(context , layout , tool)
+            cls.draw_settings_ui(context, layout)
         elif region_type == 'WINDOW' :
-            cls.draw_settings_ui(context , layout , tool)
+            cls.draw_settings_ui(context, layout)
         elif region_type == 'TOOL_HEADER' :
-            cls.draw_settings_toolheader(context , layout , tool)
+            cls.draw_settings_toolheader(context, layout, tool)
 
     
     @classmethod
-    def draw_settings_toolheader(cls, context, layout, tool):        
+    def draw_settings_toolheader(cls, context, layout, tool):
         pass
 
     
     @classmethod
-    def draw_settings_ui(cls, context, layout, tool):        
+    def draw_settings_ui(cls, context, layout):
         pass
 
         
-class FL_FastLoop(FL_ToolBase):
-
+class FL_FastLoop(FL_ToolBase, DrawFastLoopUI):
     bl_idname = "fl.fast_loop_tool"
     bl_label = "Fast Loop"
     bl_description = ( "Add loop cuts or modify existing ones" )
@@ -41,7 +40,7 @@ class FL_FastLoop(FL_ToolBase):
 
     
     @classmethod
-    def draw_settings_toolheader(cls, context, layout, tool):        
+    def draw_settings_toolheader(cls, context, layout, tool):
 
         row = layout.row(align=True)
 
@@ -54,46 +53,6 @@ class FL_FastLoop(FL_ToolBase):
 
     
     @classmethod
-    def draw_settings_ui(cls, context, layout, tool):        
+    def draw_settings_ui(cls, context, layout):
+        cls.draw_fastloop_ui(context, layout)
 
-        col = layout.column(align=True)
-
-        options = utils.ops.options()
-        if options is not None:
-            col.prop(options, "mode", toggle=True, expand=True,)
-
-            box = layout.split()
-            b = box.box()
-
-            col = b.column(align=True)
-            col.label(text="Options")
-
-            col.prop(options, "flipped" , toggle=True, text="Flip", icon='ARROW_LEFTRIGHT')
-            col.prop(options, "use_even" , toggle=True, text="Even", icon='SNAP_MIDPOINT')
-            col.prop(options, "multi_loop_offset" , toggle=True, text="Multi Loop Offset", icon='ANCHOR_LEFT')
-
-            box = layout.split()
-
-            b = box.box()
-            col = b.column(align=True)
-
-            col.label(text="Muli Loop Options")
-
-            options = utils.ops.options()
-            if options is not None:
-                col.prop(options, "segments", text="Segments")
-                col.prop(options, "scale", text="Scale")
-
-            box = layout.split()
-
-            b = box.box()
-            col = b.column(align=True)
-
-            col.label(text="Snapping")
-
-            options = utils.ops.options()
-            if options is not None:
-                col.prop(options, "use_snap_points" , toggle=True, text="Turn off Snapping" if options.use_snap_points else "Turn on Snapping", icon='SNAP_INCREMENT')
-                col.prop(options, "lock_snap_points" , toggle=True, text="Unlock Points" if options.lock_snap_points else "Lock Points", icon='LOCKED' if options.lock_snap_points else 'UNLOCKED')
-                col.prop(options, "snap_divisions", slider=True)
-                col.prop(options, "snap_factor")

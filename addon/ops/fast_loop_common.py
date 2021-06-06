@@ -4,20 +4,44 @@ import bpy, bmesh
 from bmesh.types import *
 from mathutils import Matrix
 from mathutils.geometry import intersect_point_line
+
 from .. import utils
+from .. utils.ops import get_m_button_map as btn
+from .. props import addon
+from . edge_slide import EdgeSlideOperator
+from .. snapping.snapping import SnapContext
+
+class EdgeData():
+    """Stores the points and starting vert for an edge.
+
+    Attributes:
+        points: Points along an edge.
+        loop: The loop for this edge.
+    """
+    def __init__(self, points, loop):
+        self.points = points
+        self.edge = loop.edge
+        self.first_vert = loop.vert
+
 
 from enum import Enum
 class Mode(Enum):
-    MIRRORED = 2
+    NONE = 0
     SINGLE = 4
     MULTI_LOOP = 8
     REMOVE_LOOP = 16
     SELECT_LOOP = 32
     EDGE_SLIDE = 64
+    
   
-
-enum_to_str = {Mode.SINGLE: 'SINGLE', Mode.MIRRORED: 'MIRRORED', Mode.MULTI_LOOP: 'MULTI_LOOP', Mode.REMOVE_LOOP: 'REMOVE_LOOP',  Mode.SELECT_LOOP: 'SELECT_LOOP', Mode.EDGE_SLIDE: 'EDGE_SLIDE'}
+enum_to_str = {Mode.SINGLE: 'SINGLE', Mode.MULTI_LOOP: 'MULTI_LOOP', Mode.REMOVE_LOOP: 'REMOVE_LOOP',  Mode.SELECT_LOOP: 'SELECT_LOOP', Mode.EDGE_SLIDE: 'EDGE_SLIDE', Mode.NONE: 'NONE'}
 str_to_enum = {v: k for k, v in enum_to_str.items()}
+# Helper Functions
+def enum_to_mode_str(mode):
+    return enum_to_str[mode]
+
+def str_to_mode_enum(mode_str):
+    return str_to_enum[mode_str]
 
 def get_active_mode():
     return str_to_enum[utils.ops.options().mode]
@@ -31,6 +55,8 @@ def mode_enabled(mode) -> bool:
 def set_mode(mode):
     utils.ops.set_option('mode', enum_to_str[mode])
 
+def set_mode(mode):
+    utils.ops.set_option('mode', enum_to_str[mode])
 
 def get_options():
     return utils.ops.options()
@@ -38,8 +64,26 @@ def get_options():
 def set_option(option, value):
     return utils.ops.set_option(option, value)
 
+def get_props():
+    return utils.ops.fl_props()
+    
+def set_prop(prop, value):
+    return utils.ops.set_fl_prop(prop, value)
+
+
 
 class FastLoopCommon():
+    '''Methods, attributes, and properties that Fast Loop and Fast Loop Classic share.
+    '''
+
+    is_running = False
+    @property
+    def is_running(self):
+        return get_props().is_running
+
+    @is_running.setter
+    def is_running(self, value):
+        set_prop('is_running', value)
 
     flipped = False
     @property
@@ -68,11 +112,9 @@ class FastLoopCommon():
     def cancelled(self, value):
         set_option('cancel', value)
 
-
-    is_classic = False
-    is_running = False
     active_object = None
     bm: BMesh = None
+    from_ui = True
     dirty_mesh = False
     current_edge = None
     current_edge_index = None
@@ -86,7 +128,6 @@ class FastLoopCommon():
     loop_draw_points = []
     remove_loop_draw_points = []
     edge_data = [] 
-    ring_loops = {}
 
     world_mat: Matrix = None
     world_inv: Matrix = None
@@ -95,6 +136,9 @@ class FastLoopCommon():
     offset = 0.0
     distance= 0.0
     start_mouse_pos_x = None
+
+    # Debug 
+    points_3d = []
 
     @classmethod
     def poll(cls, context):
@@ -105,8 +149,10 @@ class FastLoopCommon():
                 
               )
 
-
     def setup(self, context):
+        addon.FL_Options.register_listener(self, self.event_raised)
+        EdgeSlideOperator.register_listener(self, self.edge_slide_finished)
+
         self.active_object = context.active_object
         self.world_mat = context.object.matrix_world
         self.world_inv = context.object.matrix_world.inverted_safe()
@@ -115,11 +161,22 @@ class FastLoopCommon():
 
         self.is_loop = False
         self.edge_data.clear()
-        self.ring_loops.clear()
         self.loop_draw_points.clear()
         
         self.bm.select_mode = {'EDGE'}
         self.bm.select_flush_mode()
+
+        self.is_running = True
+
+    def invoke(self, context, event):
+        if self.is_running or self.cancelled:
+            return {"CANCELLED"}
+
+        self.setup(context)
+
+        self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self.draw_3d, (context, ), 'WINDOW', 'POST_VIEW')
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
 
 
     def cancel(self, context):
@@ -133,7 +190,6 @@ class FastLoopCommon():
     def cleanup(self, context):
         self.is_running = False
         self.edge_data.clear()
-        self.ring_loops.clear()
         self.loop_draw_points.clear()
         
         context.workspace.status_text_set(None)
@@ -151,34 +207,138 @@ class FastLoopCommon():
 
         if getattr(self, 'draw_handler_3d', None):
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_3d, 'WINDOW')
+        
+        SnapContext.remove()
 
         context.area.tag_redraw()
 
+    def event_raised(self, event, value):
+        pass
 
-    def create_geometry(self, context, edges, points, edge_verts_co, num_segments, set_edge_flow=False):
+    def update_current_ring(self):
+        pass
+
+    def update(self, element_index, nearest_co):
+        bm: BMesh = self.ensure_bmesh()
+        bm.edges.ensure_lookup_table()
+        edge = bm.edges[element_index]
+
+        if edge.is_valid:
+            self.current_edge = edge
+            self.current_edge_index = edge.index
+
+            if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
+                if self.update_current_ring():
+                    self.update_loops(nearest_co)
+                    self.update_positions_along_edges()
+
+            elif mode_enabled(Mode.REMOVE_LOOP):
+                self.remove_loop_draw_points = self.compute_remove_loop_draw_points()
+                    
+
+
+    def edge_slide_finished(self):
+        pass
+    def modal_select_edge_loop_released(self):
+        pass
+    def modal_remove_edge_loop_released(self):
+        pass
+
+    def modal(self, context, event):
+           
+        if (utils.common.prefs().use_spacebar and  mode_enabled(Mode.EDGE_SLIDE)):
+            return True
+
+        handled = False  
+        if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'}:
+            if self.current_edge is not None and event.type in {btn('LEFTMOUSE')} and event.value == 'PRESS':
+                if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)):
+
+                    if (not event.shift and not self.set_flow_enabled()) or (event.shift and self.set_flow_enabled()):
+                        self.create_geometry(context)
+
+                    elif event.shift or self.set_flow_enabled():
+                        self.create_geometry(context, set_edge_flow=True)
+                        try:
+                            self.set_flow()
+                        except:
+                            context.workspace.status_text_set(None)
+                            self.report({'ERROR'}, 'Edge Flow addon was not found. Please install and activate it.')
+
+                elif mode_enabled(Mode.REMOVE_LOOP):
+                    self.remove_edge_loop(context)
+                
+                elif mode_enabled(Mode.SELECT_LOOP):
+                    self.select_edge_loop(context)
+                    self.is_selecting = True
+                bpy.ops.ed.undo_push()
+
+                handled = True
+
+        if (event.ctrl and not (mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.REMOVE_LOOP)) and not mode_enabled(Mode.EDGE_SLIDE)):
+            set_mode(Mode.SELECT_LOOP)
+            self.from_ui = False
+            context.area.tag_redraw()
+            handled = True
+
+        elif not event.ctrl and ( event.type in {'LEFT_CTRL','RIGHT_CTRL'} and event.value == 'RELEASE') and mode_enabled(Mode.SELECT_LOOP):
+            self.modal_select_edge_loop_released()
+            handled = True
+
+
+        if event.shift and event.ctrl and not mode_enabled(Mode.REMOVE_LOOP):
+            self.from_ui = False
+            set_mode(Mode.REMOVE_LOOP)
+            context.area.tag_redraw()
+            handled = True
+
+        if not event.ctrl and (event.type in {'RIGHT_SHIFT', 'LEFT_SHIFT'} and event.value == 'RELEASE'):
+            self.modal_remove_edge_loop_released()
+            handled = True
+
+        if not utils.common.prefs().use_spacebar:
+
+            if event.alt and not mode_enabled(Mode.EDGE_SLIDE):
+                self.from_ui = False
+                set_mode(Mode.EDGE_SLIDE)
+                bpy.ops.fl.edge_slide('INVOKE_DEFAULT', restricted=True)          
+                handled = True
+        else:
+            if event.type == 'SPACE' and event.value == 'PRESS' and not mode_enabled(Mode.EDGE_SLIDE):
+                self.from_ui = False
+                set_mode(Mode.EDGE_SLIDE)
+                bpy.ops.fl.edge_slide('INVOKE_DEFAULT', restricted=True)       
+                handled = True
+            
+        return handled
+
+
+    def create_geometry(self, context, edges, points, edge_verts_co, num_segments, select_edges=False):
         def divide_chunks(l, n):
             for i in range(0, len(l), n): 
                 yield set(l[i:i + n])
 
         def distance_sq(p1, p2):
-            return (p1 - p2).length_squared
+            return (p1 - p2).length_squared            
 
         bm: BMesh = self.ensure_bmesh()
 
-        ret = bmesh.ops.subdivide_edges(bm, edges=edges, cuts=num_segments, use_grid_fill=False, use_only_quads=True)
+        ret = bmesh.ops.subdivide_edges(bm, edges=edges, cuts=num_segments, use_grid_fill=False)
         geom_inner = ret["geom_inner"]
         bm.verts.ensure_lookup_table()
 
         inner_verts = []
-        if not set_edge_flow:
-            inner_verts = [vert.index for vert in geom_inner if isinstance(vert, BMVert)]
-        else:
+        if select_edges:
+            bpy.ops.mesh.select_all(action='DESELECT')
+
             for elem in geom_inner:
                 if isinstance(elem, BMVert):
                     inner_verts.append(elem.index)
 
                 elif isinstance(elem, BMEdge):
-                    elem.select_set(True)
+                    elem.select = True
+        else:
+            inner_verts = [vert.index for vert in geom_inner if isinstance(vert, BMVert)]
 
         chunks = list(divide_chunks(inner_verts, num_segments))        
         edge_splits = defaultdict(list)
@@ -283,32 +443,44 @@ class FastLoopCommon():
                 utils.drawing.draw_point(self.world_mat @ self.edge_start_position, color=(1.0, 0.0, 0.0, 0.4))
 
         elif mode_enabled(Mode.REMOVE_LOOP) and self.remove_loop_draw_points:
-            utils.drawing.draw_line_loop(self.remove_loop_draw_points, line_color=(1.0, 0.0, 0.0, 0.4))
-
+            utils.drawing.draw_lines(self.remove_loop_draw_points, line_color=(1.0, 0.0, 0.0, 0.9))
 
         self.remove_loop_draw_points.clear()
 
+        if self.points_3d:
+            utils.drawing.draw_points(self.points_3d)
+            self.points_3d.clear()
 
-    def calc_edge_directions(self):
+
+    def get_data_from_edge_ring(self):
         edge = self.current_edge
 
-        ring_loops = {}
         edge_ring = self.current_ring
         flipped = self.flipped
 
         found_loop = False
         first_ring_edge = edge_ring[0]
-        self.shortest_edge_len = float('INF')
+        shortest_edge_len = float('INF')
 
-        for loop in edge_ring:
+        edge_start_pos = None
+        edge_end_pos = None
+
+        is_tri_fan_loop = False
+        if edge_ring[0].edge.index == edge_ring[-1].edge.index:
+            edge_ring.pop()
+            is_tri_fan_loop = True
         
+        for loop in edge_ring:
+            if loop is None:
+                break
+
             vert = loop.vert
             vert_other = loop.edge.other_vert(vert)
 
             dir_len = (vert_other.co - vert.co).length_squared
 
-            if dir_len < self.shortest_edge_len:
-                self.shortest_edge_len = dir_len
+            if dir_len < shortest_edge_len:
+                shortest_edge_len = dir_len
             
             vert_coords = None
             if loop.edge.index == edge.index:
@@ -318,28 +490,24 @@ class FastLoopCommon():
                 if flipped:
                     vert_coords.reverse()
                 
-                self.edge_start_position = vert_coords[0]
-                self.edge_end_position = vert_coords[1]
+                edge_start_pos = vert_coords[0]
+                edge_end_pos = vert_coords[1]
 
                 _, percent = intersect_point_line(self.current_position, vert_coords[0], vert_coords[1])
 
-                if self.is_classic or not self.insert_at_midpoint:
-                    self.offset = percent
-                else:
-                    self.offset = 0.5
-
-            ring_loops[loop] = None
+                self.offset = percent
 
             if (loop.link_loop_radial_next.link_loop_next.link_loop_next.index == first_ring_edge.index) and not loop.edge.is_boundary:
                 found_loop = True
             else:
                 found_loop = False
 
-        self.distance = (self.current_position - self.edge_start_position).length
-        self.shortest_edge_len = self.shortest_edge_len ** 0.5
-        self.is_loop = found_loop
-        return ring_loops
+        distance = (self.current_position - edge_start_pos).length
+        shortest_edge_len = shortest_edge_len ** 0.5
+        is_loop = found_loop or is_tri_fan_loop
 
+        return distance, shortest_edge_len, edge_start_pos, edge_end_pos, is_loop
+        
     
     def select_edge_loop(self, context):
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -365,7 +533,11 @@ class FastLoopCommon():
         self.dirty_mesh = True
         mesh = context.active_object.data
         bmesh.update_edit_mesh(mesh)
-        
+
+    @staticmethod
+    def set_flow_enabled():
+        return utils.common.prefs().set_edge_flow_enabled
+
     @staticmethod
     def set_flow():
         prefs = utils.common.prefs()

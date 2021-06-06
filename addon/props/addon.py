@@ -1,6 +1,6 @@
 import bpy
 from .. import utils
-
+from .. utils import observer as obs
 
 name = __name__.partition('.')[0]
 
@@ -17,6 +17,32 @@ class AddonProps(bpy.types.PropertyGroup):
         return utils.common.prefs()
 
 
+class Loop_Cut(bpy.types.PropertyGroup):
+    percent: bpy.props.FloatProperty(name='Percent', 
+    default=0.0, 
+    min=0.0, 
+    max=100.0, 
+    subtype='PERCENTAGE')
+
+    distance: bpy.props.FloatProperty(name='Distance', 
+    default=1.0, 
+    min=0.0,
+    subtype='DISTANCE',
+    unit='LENGTH',
+    precision=4)
+
+    @staticmethod
+    def get_method():
+        return utils.common.prefs().interpolation_type
+
+
+class Loop_Cut_Slot_Prop(bpy.types.PropertyGroup):
+    loop_cut_slot: bpy.props.CollectionProperty(name="Loop Cut Slot", type=Loop_Cut)
+
+class Loop_Cut_Slots_Prop(bpy.types.PropertyGroup):
+    loop_cut_slots: bpy.props.CollectionProperty(name="Loop Cut Slots", type=Loop_Cut_Slot_Prop)
+
+
 class FL_Props(bpy.types.PropertyGroup):
     is_running: bpy.props.BoolProperty(
         name='op running',
@@ -24,14 +50,13 @@ class FL_Props(bpy.types.PropertyGroup):
         default=False,
     )
 
-    is_sliding: bpy.props.BoolProperty(
-        name='is sliding',
-        description='Is the operator running',
-        default=False,
-    )
-    
+def prop_changed(self, context, prop):
+        if prop == "loop_position_override":
+            self.notify_listeners(prop, self.loop_position_override)
 
-class FL_Options(bpy.types.PropertyGroup):
+class FL_Options(obs.Subject, bpy.types.PropertyGroup):
+
+    _listeners  = {}
 
     dirty: bpy.props.BoolProperty(
         name='dirty',
@@ -45,18 +70,42 @@ class FL_Options(bpy.types.PropertyGroup):
         default=False,
     )
 
+    def mode_changed(self, context):
+        if self.mode == 'SINGLE':
+            self.segments = 1
+        self.notify_listeners("mode", self.mode)
+            
     mode: bpy.props.EnumProperty(
-        name="Mode",
+        name='Mode',
         items=[ ('SINGLE', "Single", "", 2),
-                ('MIRRORED', "Mirrored", "" , 4),
                 ('MULTI_LOOP', "Multi Loop", "", 8),
                 ('REMOVE_LOOP', "Remove Loop", "", 16),
                 ('SELECT_LOOP', "Select Loop", "", 32),
                 ('EDGE_SLIDE', "Edge Slide", "", 64),
         ],
         description="Mode",
-        default='SINGLE'
+        default='SINGLE',
+        update=mode_changed
         )
+
+    prev_mode: bpy.props.EnumProperty(
+        name='Prev_Mode',
+        items=[ ('NONE', "None", "", 0),
+                ('SINGLE', "Single", "", 2),
+                ('MULTI_LOOP', "Multi Loop", "", 8),
+                ('REMOVE_LOOP', "Remove Loop", "", 16),
+                ('SELECT_LOOP', "Select Loop", "", 32),
+                ('EDGE_SLIDE', "Edge Slide", "", 64),
+        ],
+        description="A way to store the previous mode so that it doesnt change when undo is executed",
+        default='NONE',
+        )
+
+    multi_loop_offset: bpy.props.BoolProperty(
+        name='Multi Loop Offset',
+        description='Offset the multi loop',
+        default=True,
+    )
 
     insert_midpoint: bpy.props.BoolProperty(
         name='Midpoint Insert',
@@ -64,11 +113,35 @@ class FL_Options(bpy.types.PropertyGroup):
         default=False,
     )
 
-    multi_loop_offset: bpy.props.BoolProperty(
-        name='Multi Loop Offset',
-        description='Offset the multi loop',
+    mirrored: bpy.props.BoolProperty(
+        name='Mirrored',
+        description='Insert loops mirrored about the midpoint of the edge',
         default=False,
     )
+
+    perpendicular: bpy.props.BoolProperty(
+        name='Perpendicular',
+        description='Insert loops perpendicular to the edge',
+        default=False,
+    )
+
+    loop_position_override: bpy.props.BoolProperty(
+        name='Loop Position Override',
+        description='Override the positions of the inserted loops using the list below',
+        default=False,
+        update = lambda s, c: prop_changed(s, c, "loop_position_override")
+    )
+
+    select_new_edges: bpy.props.BoolProperty(
+        name='Select Edge Loops',
+        description='Select the newly created edge loops',
+        default=False,
+    )
+
+    def segments_changed(self, context):
+        scene = context.scene
+        scene = bpy.context.scene
+        scene.Loop_Cut_Lookup_Index = self.segments-1
 
     segments: bpy.props.IntProperty(
         name='Segments',
@@ -77,6 +150,7 @@ class FL_Options(bpy.types.PropertyGroup):
         soft_max=10,
         min=1,
         max=100,
+        update=segments_changed
     )
 
     scale: bpy.props.FloatProperty(

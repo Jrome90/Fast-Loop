@@ -18,6 +18,19 @@ class AddonPrefs(bpy.types.AddonPreferences):
     default="GENERAL")
 
     use_rcs: bpy.props.BoolProperty(name="Swap left and right mouse buttons (Enable if you use right click select)", default=False, description="")
+    # disable_pie: bpy.props.BoolProperty(name="Disable pie menu", default=False, description="If enabled, right click will cause the operator to be cancelled")
+    use_spacebar: bpy.props.BoolProperty(name="Toggle Edge Slide with spacebar", default=False, description="Press the space bar to toggle edge slide instead of holding down alt")
+    occlude_lines: bpy.props.BoolProperty(name="Don't draw lines behind geometry", default=False, description="Don't draw lines if they are behind geometry")
+
+    interpolation_type: bpy.props.EnumProperty(
+        name='Interpolation Type',
+        items=[ ('PERCENT', "Percent", "", 1),
+                ('DISTANCE', "Distance", "", 2),
+              
+        ],
+        description="",
+        default='PERCENT',
+        )
 
     set_edge_flow_enabled: bpy.props.BoolProperty(
         name='Set Edge Flow',
@@ -26,7 +39,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
     )
     
     tension : bpy.props.IntProperty(
-        name="Tension", 
+        name="Tension",
         default=180, 
         min=-500, 
         max=500
@@ -66,7 +79,9 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
     def draw_general(self, context, layout):
         layout.prop(self, "use_rcs")
-            
+        layout.prop(self, "disable_pie")  
+        layout.prop(self, "use_spacebar")  
+        layout.prop(self, "occlude_lines")  
     
     def draw_keymaps(self, context, layout):
 
@@ -81,27 +96,31 @@ class AddonPrefs(bpy.types.AddonPreferences):
             self.draw_km(kc, km, layout)
     
     def draw_help(self, context, layout):
-
         def add_shortcut_info(keymap, text_box, icons_box):
-            global m_buttons
+            m_buttons = ['MOUSE_LMB', 'MOUSE_RMB']
 
             for text, icons in keymap.items():
                 text_box.label(text=text)
                 icon_row = icons_box.row()
+                icon_row.alignment = 'LEFT'
+                
                 for icon in icons:
                     if icon in {'MOUSE_LMB', 'MOUSE_RMB'}:
                         i = m_buttons.index(icon) 
                         if self.use_rcs:
                             icon = m_buttons[i-1]
-
-                    icon_row.label(icon=icon)
+                    if icon is not None:
+                        icon_row.label(icon=icon)
+                    else:
+                        icon_row.label()
+                        
 
         flc = layout
         flc.label(text="Fast Loop Classic")
         row = flc.row()
         row.alignment = 'LEFT'     
         text_box = row.box()
-        text_box.alignment = 'RIGHT'
+        text_box.alignment = 'LEFT'
         icons_box = row.box()
         icons_box.alignment = 'LEFT'
         
@@ -123,18 +142,23 @@ class AddonPrefs(bpy.types.AddonPreferences):
         icons_box.alignment = 'LEFT'
 
         add_shortcut_info({"Insert Loop": ['MOUSE_LMB']}, text_box, icons_box)
+        add_shortcut_info({"Change Loop Number 1-9": ['ADD', 'REMOVE']}, text_box, icons_box)
         add_shortcut_info({"Insert Loop With Flow": ['EVENT_SHIFT', 'MOUSE_LMB']}, text_box, icons_box)
-        #add_shortcut_info({"Select Loop": ['EVENT_CTRL', 'MOUSE_LMB']}, text_box, icons_box)
+        add_shortcut_info({"Select Loop": ['EVENT_CTRL', 'MOUSE_LMB']}, text_box, icons_box)
         add_shortcut_info({"Slide Loop": ['EVENT_ALT', 'MOUSE_LMB']}, text_box, icons_box)
         add_shortcut_info({"Slide Loop Even": ['EVENT_CTRL', 'EVENT_ALT', 'MOUSE_LMB']}, text_box, icons_box)
         add_shortcut_info({"Adjust Loop Preserve Space": ['EVENT_SHIFT', 'EVENT_ALT', 'MOUSE_LMB']}, text_box, icons_box)
-        #add_shortcut_info({"Remove Loop": ['EVENT_CTRL', 'EVENT_SHIFT', 'MOUSE_LMB']}, text_box, icons_box)
+        add_shortcut_info({"Remove Loop": ['EVENT_CTRL', 'EVENT_SHIFT', 'MOUSE_LMB']}, text_box, icons_box)
         
-        add_shortcut_info({"Single": ['EVENT_S']}, text_box, icons_box)
+        #add_shortcut_info({"Single": ['EVENT_S']}, text_box, icons_box)
         add_shortcut_info({"Mirrored": ['EVENT_M']}, text_box, icons_box)
-        add_shortcut_info({"Multi Loop": ['EVENT_N']}, text_box, icons_box)
-        add_shortcut_info({"Snap Points": ['EVENT_I']}, text_box, icons_box)
-        add_shortcut_info({"Lock Snap Points": ['EVENT_L']}, text_box, icons_box)
+        add_shortcut_info({"Midpoint": ['EVENT_C']}, text_box, icons_box)
+        add_shortcut_info({"Perpendicular: /": ['ERROR']}, text_box, icons_box)
+        add_shortcut_info({"Select New Edges": ['EVENT_Q']}, text_box, icons_box)
+        #add_shortcut_info({"Multi Loop": ['EVENT_N']}, text_box, icons_box)
+        add_shortcut_info({"Toggle Change Scale": ['EVENT_W']}, text_box, icons_box)
+        add_shortcut_info({"Snap Points": ['EVENT_S']}, text_box, icons_box)
+        add_shortcut_info({"Lock Snap Points": ['EVENT_X']}, text_box, icons_box)
         add_shortcut_info({"Pie Menu": ['MOUSE_RMB']}, text_box, icons_box)
 
         es=layout
@@ -148,9 +172,9 @@ class AddonPrefs(bpy.types.AddonPreferences):
         
         add_shortcut_info({"Slide Edge": ['MOUSE_LMB']}, text_box, icons_box)
         add_shortcut_info({"Slide Edge Even": ['EVENT_CTRL','MOUSE_LMB']}, text_box, icons_box)
-        add_shortcut_info({"Slide Edge Keep Shape": ['EVENT_SHIFT','MOUSE_LMB']}, text_box, icons_box)
+        add_shortcut_info({"Slide Edge Preserve Space": ['EVENT_SHIFT','MOUSE_LMB']}, text_box, icons_box)
         add_shortcut_info({"Toggle Edge/Vertex Constraint Translation Along Axis (XYZ)": ['EVENT_X', 'EVENT_Y', 'EVENT_Z']}, text_box, icons_box)
-        add_shortcut_info({"Togle Selection Mode": ['EVENT_S']}, text_box, icons_box)
+        add_shortcut_info({"Toggle Selection Mode": ['EVENT_S']}, text_box, icons_box)
         
         
     @staticmethod
@@ -179,3 +203,5 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
                 if kmi.idname == "fl.edge_slide":
                     rna_keymap_ui.draw_kmi(["ADDON", "USER", "DEFAULT"], kc, km, kmi, col, 0)
+
+

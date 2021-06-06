@@ -1,5 +1,4 @@
 from functools import reduce
-from math import isclose
 
 from bmesh.types import *
 
@@ -43,6 +42,139 @@ def bmesh_edge_ring_walker(edge: BMEdge):
         else:
             break
 
+# Adapted from blender source code
+def get_edge_other_loop(edge: BMEdge, loop: BMLoop):
+    other_loop = None
+
+    other_loop = loop if loop.edge == edge else loop.link_loop_prev
+    other_loop = other_loop.link_loop_radial_next
+
+    if other_loop.vert == loop.vert:
+       pass
+
+    elif other_loop.link_loop_next.vert == loop.vert:
+        other_loop = other_loop.link_loop_next
+    else: 
+        return None
+
+    return other_loop
+
+# Adapted from blender source code
+def bm_vert_step_fan_loop(loop: BMLoop, edge_step: BMEdge):
+    edge_prev = edge_step
+    next_edge = None
+
+    if loop is not None:
+        if loop.edge == edge_prev:
+            next_edge = loop.link_loop_prev.edge
+        elif loop.link_loop_prev.edge == edge_prev:
+            next_edge = loop.edge
+        else:
+            return None, None
+
+        if (next_edge.is_manifold):
+            edge_step = next_edge
+            return get_edge_other_loop(next_edge, loop), edge_step
+
+    return None, None
+
+def get_edge_other_loop_r(edge: BMEdge, loop: BMLoop):
+    other_loop = None
+
+    other_loop = loop if loop.edge != edge else loop.link_loop_next
+    other_loop = other_loop.link_loop_radial_next
+
+    if other_loop.vert == loop.vert:
+       pass
+
+    elif other_loop.link_loop_prev.link_loop_prev.vert == loop.vert:
+        other_loop = other_loop.link_loop_prev.link_loop_prev
+    else: 
+        return None
+
+    return other_loop
+
+def bm_vert_step_fan_loop_r(loop: BMLoop, edge_step: BMEdge):
+    edge_prev = edge_step
+    next_edge = None
+
+    if loop is not None:
+        if loop.edge == edge_prev:
+            next_edge = loop.link_loop_radial_next.link_loop_next.edge
+        elif loop.link_loop_prev.edge == edge_prev:
+            next_edge = loop.edge
+        else:
+            return None, None
+
+        if (next_edge.is_manifold):
+            edge_step = next_edge
+            return get_edge_other_loop_r(next_edge, loop), edge_step
+
+    return None, None
+
+def get_face_loop_for_edge(face: BMFace, edge: BMEdge) -> BMLoop:
+    for loop in face.loops:
+        if loop.edge.index == edge.index:
+            return loop
+    return None
+
+# Adapted from blender source code
+def bm_tri_fan_walker(bm, face, edge: BMEdge):
+    def rewind(loop: BMLoop, edge: BMEdge):
+        nonlocal start_loop
+        next_loop = None
+        next_edge = loop.edge
+        while True:
+
+            next_loop, next_edge = bm_vert_step_fan_loop(loop, next_edge)
+            if next_loop is not None:
+                pass
+            else:
+                return loop.link_loop_next.link_loop_next if loop.edge != next_edge else loop
+            loop = next_loop
+            
+            if next_edge == start_loop.edge:
+                return loop
+    
+    orig_start_loop = get_face_loop_for_edge(bm.faces[face], edge)
+    start_loop = orig_start_loop
+
+    start_loop = rewind(orig_start_loop, edge)
+
+    yield start_loop
+    
+    if start_loop.edge.index == orig_start_loop.edge.index:
+        start_loop = orig_start_loop.link_loop_radial_next
+    
+    if start_loop.link_loop_next.edge.is_manifold:
+        start_loop = start_loop.link_loop_next
+    else:
+        yield None
+        return
+
+    loop = start_loop
+    next_loop = None
+    next_edge = start_loop.edge
+    done = False
+    while True:
+        yield loop
+
+        if done:
+            break
+
+        next_loop, next_edge = bm_vert_step_fan_loop_r(loop, next_edge)
+        if next_loop is not None:
+            pass
+        else:
+            next_loop = loop.link_loop_radial_next.link_loop_next if loop.edge != next_edge else loop
+            done = True
+
+        loop = next_loop
+        
+        if next_edge == start_loop.edge:
+            break
+  
+
 def bmesh_face_loop_walker(face: BMFace):
     # Get the first loop
     next_loop = face.loops[0]
@@ -52,39 +184,6 @@ def bmesh_face_loop_walker(face: BMFace):
 
         next_loop = next_loop.link_loop_next
         test_condition = next_loop.index != face.loops[0].index
-
-# 
-# def bmesh_subdivide_edge(bm: BMesh, edge: BMEdge, vert: BMVert, n=1):
-#     ret = []
-#     current_vert = vert
-#     current_edge = edge
-#     for i in range(0, n):
-#         percent = 1.0 / float((n + 1 - i))
-
-#         new_edge, new_vert = bmesh.utils.edge_split(current_edge, current_vert, percent)
-#         current_vert = new_edge.other_vert(new_vert)
-#         current_edge = new_edge
-#         ret.append((new_edge, new_vert))
-
-#     bm.verts.index_update()
-#     return ret
-
-
-# def bmesh_scale(bm: BMesh, vec, space_mat: Matrix, verts):
-#     scale_mat = Matrix()
-#     scale_mat[0][0] = vec[0]
-#     scale_mat[1][1] = vec[1]
-#     scale_mat[2][2] = vec[2]
-
-#     space_mat_inv = space_mat.inverted()
-#     mat = space_mat_inv @ scale_mat @ space_mat
-
-#     bm.verts.ensure_lookup_table()
-#     for vert_idx in verts:
-#         bm_vert = bm.verts[vert_idx]
-
-#         bm_vert.co = mat @ bm_vert.co
-
 
 def ensure(mesh: BMesh):
     mesh.edges.ensure_lookup_table()
@@ -97,102 +196,6 @@ def get_vertex_shared_by_edges(edges) -> BMVert:
         return verts.pop()
 
     return None
-
-def face_has_edges(face: BMFace, edges) -> bool:
-    return len(set(edges).intersection(set(face.edges))) == len(edges)
-
-
-# def get_face_with_edges(edges) -> BMFace:
-#     assert (len(edges) >= 2)
-
-#     faces = {face for edge in edges for face in edge.link_faces}
-
-#     while len(faces) > 0:
-#         face = faces.pop()
-#         if face_has_edges(face, edges):
-#             return face
-#     return None
-
-# def get_loop_from_direction_and_edge_2(edge, dir_vec) -> BMLoop:
-#     ''' Return the loop that has the same direction defined by vert_a and vert_b
-#     '''
-#     dir_vec.normalize()
-#     thetas = []
-#     for loop in edge.link_loops:
-#         edge = loop.edge
-#         l_vert = loop.vert
-#         l_other_vert= edge.other_vert(l_vert)
-
-#         l_dir_vec = l_other_vert.co - l_vert.co
-#         l_dir_vec.normalize()
-
-#         theta = dir_vec.dot(l_dir_vec)
-#         thetas.append(theta)
-#         if isclose(theta, 1.0, abs_tol=0.001) :
-#             return loop
-
-#     print("WTF")
-
-# def get_loop_from_direction_and_vert(vert_a: BMVert, vert_b: BMVert) -> BMLoop:
-#     ''' Return the loop that has the same direction defined by vert_a and vert_b
-#     '''
-#     dir_vec = (vert_b.co - vert_a.co)
-#     dir_vec.normalize()
-#     thetas = []
-#     for loop in vert_a.link_loops:
-#         edge = loop.edge
-#         l_vert = loop.vert
-#         l_other_vert= edge.other_vert(l_vert)
-
-#         l_dir_vec = l_other_vert.co - l_vert.co
-#         l_dir_vec.normalize()
-
-#         theta = dir_vec.dot(l_dir_vec)
-#         thetas.append(theta)
-#         if isclose(theta, 1.0, abs_tol=0.001) :
-#             return loop
-
-#     print("WTF")
-
-# def get_loop_from_direction_and_edge(vert_a: BMVert, vert_b: BMVert, edge: BMEdge) -> BMLoop:
-#     ''' Return the edge's loop that has the same direction defined by vert_a and vert_b.
-#         direction: vert_a -----> vert_b
-        
-#     '''
-#     dir_vec = (vert_b.co - vert_a.co)
-#     dir_vec.normalize()
-#     thetas = []
-#     for loop in edge.link_loops:
-#         edge = loop.edge
-#         l_vert = loop.vert
-#         l_other_vert= edge.other_vert(l_vert)
-
-#         l_dir_vec = l_other_vert.co - l_vert.co
-#         l_dir_vec.normalize()
-
-#         theta = dir_vec.dot(l_dir_vec)
-#         thetas.append(theta)
-#         if isclose(theta, 1.0, abs_tol=0.001) :
-#             return loop
-       
-#     print(f"WTF: {edge.index}; verts:{vert_a.index}, {vert_b.index} ")
-            
-
-# def get_perc_along(vec_a: Vector, vec_b: Vector, vec_c: Vector) -> float:
-#     """ Calculate the percent along a vector
-#         Projects the vector ac onto the vector ab and then returns as a float the percentage along ab that ac is.
-#         Args:
-#             vec_a: Normalized vector.
-#             vec_b: Normalized vector.
-#             vec_c: Normalized vector.
-#         Returns:
-#             The percentage along the vector ab.
-#     """
-
-#     ab: Vector = vec_b - vec_a
-#     ac: Vector = vec_c - vec_a
-
-#     return ab.dot(ac) / ab.length_squared  # Why does dot() return a vector?
 
 def get_loop_other_edge_loop(loop: BMLoop, vert: BMVert):
     return loop.link_loop_prev if loop.vert == vert else loop.link_loop_next
@@ -211,7 +214,6 @@ def get_face_other_vert_loop(face: BMFace, vert_prev: BMVert, vert: BMVert):
             return loop.link_loop_next
         elif loop.link_loop_next.vert == vert_prev:
             return loop.link_loop_prev
-
 
 def get_face_loop_for_vert(face: BMFace, vert: BMVert) -> BMLoop:
     for loop in face.loops:

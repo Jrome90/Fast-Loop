@@ -97,8 +97,6 @@ class SnapContext():
         handler = object.__getattribute__(self, '_handler')
         bpy.app.handlers.depsgraph_update_post.remove(handler)
 
-        # self.draw_snap_points = None
-        # self.draw_mid_point = None
         if getattr(self, '_draw_handler_3d', False):
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(
                 self._draw_handler_3d, 'WINDOW')
@@ -191,7 +189,7 @@ class SnapContext():
         inside_npanel = utils.ui.inside_npanel(mvals)
         inside_gizmo = utils.ui.inside_navigation_gizmo(mvals)
         if inside_toolbar or inside_npanel or inside_gizmo:
-            return None, None
+            return None, None, None
 
         if object_ is None:
             pass
@@ -209,19 +207,12 @@ class SnapContext():
     
 
     def _draw_callback_3d(self, context):
-        if self.loc is not None:
-            utils.drawing.draw_points([self.loc])
-            self.loc = None
 
         if self.draw_snap_points is not None:
             utils.drawing.draw_points(self.draw_snap_points)
 
         if self.draw_mid_point is not None:
             utils.drawing.draw_point(self.draw_mid_point, size=6.0)
-
-            # if not self.is_snap_points_locked:
-            #     self.draw_snap_points = None
-            #     self.draw_mid_point = None
                 
 
     def _snap_object(self, snap_object, mvals):
@@ -240,9 +231,8 @@ class SnapContext():
         self.mval = Vector(mvals)
 
         #if snap_math.snap_bound_box_check_dist(snap_object.min, snap_object.max, self.MVP, self.win_size, self.mval, self.radius, (ray_orig_local, ray_dir_local)):
-        ray_co, _, index, _ = snap_object.bvh_tree.ray_cast(
+        ray_co, _, face_index, _ = snap_object.bvh_tree.ray_cast(
             ray_orig_local, ray_dir_local)
-
 
         if self.is_snap_points_locked and self._locked_snap_edge_idx is not None:
             self.draw_mid_point = None
@@ -250,7 +240,7 @@ class SnapContext():
 
         nearest_loc = None
         element_index = None
-        if index is not None:
+        if face_index is not None:
 
             if snap_object.bm.is_valid:
                 bm: BMesh = snap_object.bm
@@ -259,12 +249,12 @@ class SnapContext():
 
                     shortest_dist = float('INF')
                     try:
-                        face = bm.faces[index]
+                        face = bm.faces[face_index]
                     except IndexError:
-                        return None, None
+                        return None, None, None
 
                     if face.hide == True:
-                        return None, None
+                        return None, None, None
 
                     for loop in utils.mesh.bmesh_face_loop_walker(face):
                         edge = loop.edge
@@ -284,13 +274,6 @@ class SnapContext():
                                 element_index = edge_index
 
                     if element_index is not None and (self.snap_flags & SNAPMODE.EDGE and self.snap_flags & SNAPMODE.INCREMENT):
-                        # if self.is_snap_points_locked and self._locked_snap_edge_idx is None:
-                        #     self.draw_mid_point = None
-                        #     self._calc_snap_edge_increments(element_index)
-                            
-                        # if self.is_snap_points_locked and self._locked_snap_edge_idx is not None:
-                        #     self.draw_mid_point = None
-                        #     self._calc_snap_edge_increments()
 
                         if not self.is_snap_points_locked or self.draw_snap_points is None:
                             self._calc_snap_edge_increments(element_index)
@@ -313,11 +296,11 @@ class SnapContext():
                     elif self.snap_flags & SNAPMODE.EDGE and not self.snap_flags & SNAPMODE.INCREMENT:
                         self.draw_snap_points = None
 
-                    return element_index, nearest_loc
+                    return face_index, element_index, nearest_loc
         else:
-            return None, None
+            return None, None, None
 
-        return None, None
+        return None, None, None
 
 
     def _calc_snap_edge_increments(self, index=None):
@@ -338,7 +321,7 @@ class SnapContext():
             va_co = self._locked_snap_edge_points[0]
             vb_co = self._locked_snap_edge_points[1]
 
-        self.draw_snap_points = []
+        draw_snap_points = []
         n = self._snap_increment_divisions
         self._increment_snap_points.clear()
         if n > 1:
@@ -352,11 +335,13 @@ class SnapContext():
                     self.draw_mid_point = snap_object.object_matrix @ va_co.lerp(
                         vb_co, 0.5)
                 else:
-                    self.draw_snap_points.append(position)
+                    draw_snap_points.append(position)
         else:
             position = snap_object.object_matrix @ va_co.lerp(vb_co, self._snap_factor)
             self._increment_snap_points.append(position)
-            self.draw_snap_points.append(position)
+            draw_snap_points.append(position)
+
+        self.draw_snap_points = draw_snap_points
 
 
     def _cb_snap_edge(self, index):

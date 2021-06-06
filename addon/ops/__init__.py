@@ -1,9 +1,11 @@
 import bpy
+from . import internal
 from . import fast_loop
 from . import fast_loop_classic
-from. import edge_slide 
+from . import edge_slide
 
 classes = (
+    internal.UI_OT_override_reset,
     fast_loop.FastLoopOperator,
     fast_loop_classic.FastLoopClassicOperator,
     edge_slide.EdgeSlideOperator,

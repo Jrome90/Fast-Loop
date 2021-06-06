@@ -1,49 +1,37 @@
 import bpy
-import mathutils
 from  bmesh.types import *
-from ... import utils
-from ... snapping.snapping import (
-                                    SnapContext,
-                                  )
+from ... snapping.snapping import SnapContext
+                                  
 
 class PreviewWidget( bpy.types.Gizmo):
     bl_idname = "FL_GT_Preview"
 
-    # __slots__ = (
-    #     'snap_context',
-    #     'is_setup',
-    #     'current_element',
-    #     'current_position'      
-    # )
-
-    def __init__(self):
-        self.snap_context = None
-        self.is_setup = False
-        self.current_element = None
-        self.current_position = None
+    # def __init__(self):
+        
+        # self.snap_context = None
+        # self.is_setup = False
+        # self.current_element = None
+        # self.current_position = None
 
     def draw(self, context):
         pass
-    #     if self.current_element is not None:
-    #         utils.drawing.draw_points([self.current_position])
-    #         self.current_element = None
 
     def test_select(self, context, mouse_co):
-        if not self.is_setup:
-          return -1
+        # if not self.is_setup:
+        #   return -1
 
-        else:
-            active_object = context.active_object
-            element_index, nearest_co = self.snap_context.do_snap(mouse_co, active_object)
+        # else:
+        #     active_object = context.active_object
+        #     _, element_index, nearest_co = self.snap_context.do_snap(mouse_co, active_object)
 
-            if element_index is not None:
-                bm: BMesh = self.snap_context.snap_objects[active_object.name].bm
-                bm.edges.ensure_lookup_table()
-                edge = bm.edges[element_index]
-                self.current_element = edge
-                self.current_position = nearest_co
+        #     if element_index is not None:
+        #         bm: BMesh = self.snap_context.snap_objects[active_object.name].bm
+        #         bm.edges.ensure_lookup_table()
+        #         edge = bm.edges[element_index]
+        #         self.current_element = edge
+        #         self.current_position = nearest_co
 
-            context.area.tag_redraw()
+        #     context.area.tag_redraw()
         return -1
             
 
@@ -54,7 +42,8 @@ class PreviewWidget( bpy.types.Gizmo):
         self.is_setup = True
 
     def removed_widget(self):
-        SnapContext.remove()
+        pass
+        #SnapContext.remove()
 
     def setup(self):
         self.is_setup = False

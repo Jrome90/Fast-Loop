@@ -3,11 +3,14 @@ from math import isclose
 import bpy
 from bmesh.types import *
 
-from mathutils.geometry import intersect_point_line, intersect_line_plane
-
 from .. import utils
-from . fast_loop_common import FastLoopCommon, Mode, mode_enabled, set_mode, get_active_mode, get_options, set_option
+from .. utils.ops import get_m_button_map as btn
+from . fast_loop_common import (FastLoopCommon, EdgeData, Mode, get_active_mode, mode_enabled, 
+                                set_mode, get_options, set_option, enum_to_mode_str, str_to_mode_enum)
+
 from .. snapping.snapping import SnapContext
+
+from . fast_loop_algorithms import ComputeEdgePostitonsMultiAlgorithm, ComputeEdgePostitonsSingleAlgorithm, ComputeEdgePostitonsOverrideAlgorithm
 
 
 class EdgeData():
@@ -26,7 +29,7 @@ class EdgeData():
 class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     bl_idname = 'fl.fast_loop'
     bl_label = 'fast_loop operator'
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'}
 
     invoked_by_tool: bpy.props.BoolProperty(
         name='tool invoked',
@@ -37,9 +40,25 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
     is_scaling = False
     is_selecting = False
-    prev_mode = None
+    edge_pos_algorithm = None
+
+    # Needed for tri fan loops
+    current_face_index = None
 
     segments = 2
+
+    prev_mode = Mode.NONE
+    @property
+    def prev_mode(self):
+        mode = str_to_mode_enum(get_options().prev_mode)
+        if mode != Mode.NONE:
+            return mode
+        return None
+    
+    @prev_mode.setter
+    def prev_mode(self, value):
+        set_option('prev_mode', enum_to_mode_str(value))
+
     @property
     def segments(self):
         return get_options().segments
@@ -66,16 +85,47 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     def use_multi_loop_offset(self, value):
         set_option('multi_loop_offset', value)
 
+    loop_position_override = False
+    @property
+    def loop_position_override(self):
+        return get_options().loop_position_override
     
+
     insert_at_midpoint = False
     @property
     def insert_at_midpoint(self):
         return get_options().insert_midpoint
-    
+
     @insert_at_midpoint.setter
     def insert_at_midpoint(self, value):
-        set_option('insert_at_midpoint', value)
+        set_option('insert_midpoint', value)
 
+    mirrored = False
+    @property
+    def mirrored(self):
+        return get_options().mirrored
+    
+    @mirrored.setter
+    def mirrored(self, value):
+        set_option('mirrored', value)
+
+    perpendicular = False
+    @property
+    def perpendicular(self):
+        return get_options().perpendicular
+    
+    @perpendicular.setter
+    def perpendicular(self, value):
+        return set_option('perpendicular', value)
+
+    select_new_edges = False
+    @property
+    def select_new_edges(self):
+        return get_options().select_new_edges
+
+    @select_new_edges.setter
+    def select_new_edges(self, value):
+        set_option('select_new_edges', value)
 
     use_snap_points = False
     @property
@@ -86,7 +136,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     def use_snap_points(self, value):
         set_option('use_snap_points', value)
 
-    
     snap_divisions = 2
     @property
     def snap_divisions(self):
@@ -126,35 +175,101 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         scale = context.scene.unit_settings.scale_length
         header = utils.ui.header(
             offset_str,
+            # * self.current_edge.calc_length() if self.current_edge is not None else 0.0
             f"Offset: {self.distance * scale:07.3f}",
-            f"Scale: {self.scale:02.3f}",
+            f"Scale: {self.scale :02.3f}",
             f"Even: {self.use_even}",
             f"Flipped: {self.flipped}",
-            f"Segments:{self.segments}",
+            f"Loops: {self.segments}",
+            f"Mirrored: {self.mirrored}",
+            f"Midpoint: {self.insert_at_midpoint}",
         )
 
         context.area.header_text_set(header)
+    
+    
+    def set_status(self, context):
+
+        def status(header, context):
+            shortcuts= [
+                        {"Insert Loop": ['MOUSE_LMB']},
+                        {"Change Loop Number 1-9 | +-": []},
+                        {"Even": ['EVENT_E']},
+                        {"Flipped": ['EVENT_F']},
+                        {"Mirrored": ['EVENT_M']},
+                        {"Midpoint": ['EVENT_C']},
+                        {"Select New": ['EVENT_Q']},
+                        {"Snap Points": ['EVENT_S']},
+                        {"Lock Points": ['EVENT_X']},
+                        {"Pie Menu": ['MOUSE_RMB']},
+                    ]
+
+            header = utils.ops.generate_status_layout(shortcuts, header.layout)       
+            utils.ui.statistics(header, context)
+
+        context.workspace.status_text_set(status)
 
 
     def draw(self, context):
         pass
 
-
-
     def execute(self, context):                
         return {'FINISHED'}
 
+    def setup(self, context):
+        super().setup(context)
+
+        self.set_status(context)
+        scene = context.scene
+        slots = scene.Loop_Cut_Slots.loop_cut_slots
+        #slots.clear()
+        if len(slots.keys()) == 0:
+            for i in range(9):
+                slot = slots.add()
+                for j in range(i+1):
+                    percent = ((1.0 + j) / ( (i+1) + 1.0))
+                    prop = slot.loop_cut_slot.add()
+                    prop.percent = percent * 100
+                    
+        self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+
 
     def invoke(self, context, event):
-        if self.is_running or self.cancelled:
-            return {"CANCELLED"}
-        self.setup(context)
+        return super().invoke(context, event)
 
-        self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self.draw_3d, (context, ), 'WINDOW', 'POST_VIEW')
-        context.window_manager.modal_handler_add(self)
+    def get_edge_pos_algorithm(self):
+        active_mode = get_active_mode()
+        if active_mode in {Mode.SINGLE, Mode.MULTI_LOOP} and not self.loop_position_override:
+            if active_mode == Mode.SINGLE:
+                return ComputeEdgePostitonsSingleAlgorithm()
+            else:
+                return ComputeEdgePostitonsMultiAlgorithm()
+        elif active_mode in {Mode.SINGLE, Mode.MULTI_LOOP} and self.loop_position_override:
+            return ComputeEdgePostitonsOverrideAlgorithm()
 
-        return {'RUNNING_MODAL'}
     
+    def event_raised(self, event, value):
+        if event == "mode":
+            if value == "EDGE_SLIDE":
+                if self.from_ui:
+                    context_override = utils.ops.get_context_overrides(self.active_object)
+                    bpy.ops.fl.edge_slide(context_override, 'INVOKE_DEFAULT')
+                    self.from_ui = True
+
+            self.from_ui = True
+
+        self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+
+    
+    def update_current_ring(self):
+        self.current_ring = list(utils.mesh.bmesh_edge_ring_walker(self.current_edge))
+
+        if len(self.current_ring) < 2:
+            self.current_ring = list(utils.mesh.bm_tri_fan_walker(self.bm, self.current_face_index, self.current_edge))
+            return self.current_ring[1] is not None
+
+        return True
+
 
     def modal(self, context, event):
 
@@ -162,10 +277,16 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         any(tool_name in ['fl.fast_loop_tool'] \
             for tool_name in [tool.idname for tool in context.workspace.tools])) or self.cancelled:
             return self.cancel(context)
+        
+        self.set_status(context)
 
         if event.type == 'TIMER':
             return {'RUNNING_MODAL'}
 
+        if mode_enabled(Mode.EDGE_SLIDE):
+            return {'PASS_THROUGH'}
+        
+        
         if self.dirty_mesh and not mode_enabled(Mode.REMOVE_LOOP):
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.mode_set(mode='EDIT')
@@ -177,28 +298,14 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.snap_context: SnapContext = SnapContext.get(context, context.evaluated_depsgraph_get(), context.space_data, context.region)
             self.snap_context.add_object(self.active_object)
 
-        if self.snap_context is not None and ((not self.is_scaling and not mode_enabled(Mode.EDGE_SLIDE)) or mode_enabled(Mode.REMOVE_LOOP)):  
+        if self.snap_context is not None and (not self.is_scaling and not mode_enabled(Mode.EDGE_SLIDE) or mode_enabled(Mode.REMOVE_LOOP)):  
             self.update_snap_context()
 
             mouse_coords = (event.mouse_region_x, event.mouse_region_y)
-            element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
+            self.current_face_index, element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
 
             if element_index is not None:
-                
-                bm: BMesh = self.ensure_bmesh()
-                bm.edges.ensure_lookup_table()
-                edge = bm.edges[element_index]
-            
-                if edge.is_valid:
-                    self.current_edge = edge
-                    self.current_edge_index = edge.index
-
-                    if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
-                        self.current_ring = list(utils.mesh.bmesh_edge_ring_walker(self.current_edge))
-                        self.update(nearest_co)
-
-                    elif mode_enabled(Mode.REMOVE_LOOP):
-                        self.remove_loop_draw_points = self.compute_remove_loop_draw_points()
+                self.update(element_index, nearest_co) 
             else:
                 self.current_edge = None
 
@@ -206,15 +313,16 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             pass 
         
         handled = False
-        if event.type in {'M', 'E', 'F', 'S', 'R'} and not (event.ctrl or event.alt):
+
+        if event.type in {'M', 'E', 'F', 'S', 'X', 'W', 'C', 'Q', 'SLASH'} and not (event.ctrl or event.alt):
 
             if event.type == 'M' and event.value == 'PRESS':
-                set_mode(Mode.MIRRORED)
+                self.mirrored = not self.mirrored
 
             elif event.type == 'E' and event.value == 'PRESS':
                 self.use_even = not self.use_even
 
-            elif event.type == 'R' and event.value == 'PRESS':
+            elif event.type == 'F' and event.value == 'PRESS':
                 self.flipped = not self.flipped
                 if self.use_snap_points and  self.snap_divisions == 1:
                     if self.flipped :
@@ -225,18 +333,39 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             elif event.type == 'S' and event.value == 'PRESS':
                 self.use_snap_points = not self.use_snap_points
 
-            elif event.type == 'F' and event.value == 'PRESS':
+            elif event.type == 'X' and event.value == 'PRESS':
                 self.lock_snap_points = not self.lock_snap_points
+
+            elif event.type == 'W' and event.value == 'PRESS':
+                if not self.is_scaling:
+                    self.start_mouse_pos_x = event.mouse_x
+                self.is_scaling = not self.is_scaling
+
+            elif event.type == 'C' and event.value == 'PRESS':
+                self.insert_at_midpoint = not self.insert_at_midpoint
+
+            elif event.type == 'Q' and event.value == 'PRESS':
+                self.select_new_edges = not self.select_new_edges
+            
+            elif event.type == 'SLASH' and event.value == 'PRESS':
+                self.perpendicular = not self.perpendicular
+
             handled = True
+
         elif event.type in {'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'} and event.value == 'PRESS':
             num_lookup = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5, 'SIX': 6, 'SEVEN': 7, 'EIGHT': 8, 'NINE': 9}
             n = num_lookup[event.type]
             if n == 1:
+                self.from_ui = False
                 set_mode(Mode.SINGLE)
+                self.prev_mode = Mode.SINGLE
             else:
+                self.from_ui = False
                 set_mode(Mode.MULTI_LOOP)
+                self.prev_mode = Mode.MULTI_LOOP
 
             self.segments = n
+            self.edge_pos_algorithm = self.get_edge_pos_algorithm()
             handled = True
         
         elif event.type in {'EQUAL', 'NUMPAD_PLUS', 'MINUS', 'NUMPAD_MINUS'} and event.value == 'PRESS':
@@ -246,63 +375,44 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 self.segments -= 1
 
             if self.segments == 1:
+                self.from_ui = False
                 set_mode(Mode.SINGLE)
+                self.prev_mode = Mode.SINGLE
             else:
+                self.from_ui = False
                 set_mode(Mode.MULTI_LOOP)
+                self.prev_mode = Mode.MULTI_LOOP
+
+            self.edge_pos_algorithm = self.get_edge_pos_algorithm()
             handled = True
 
         elif event.type in {'ESC'}:
             set_option('cancel', True)
             handled = True
 
-        if event.ctrl and event.type == 'Z' and event.value == 'PRESS':
-                prev_use_snap_points = self.use_snap_points
-                prev_lock_snap_points = self.lock_snap_points
-                self.use_snap_points = False
-                self.lock_snap_points = False
-
-                bpy.ops.ed.undo()
-
-                if prev_use_snap_points:
-                    self.use_snap_points = True
-                if prev_lock_snap_points:
-                   self.lock_snap_points = True
-                handled = True
-
-        if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'}:
-
-            if self.current_edge is not None and event.type in {'LEFTMOUSE'} and event.value == 'PRESS':
-                if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)):
-                    if not event.shift:
-                        self.create_geometry(context)
-                    elif event.shift:
-                        self.create_geometry(context, set_edge_flow=True)
-                        self.set_flow()
-
-                elif mode_enabled(Mode.REMOVE_LOOP):
-                    self.remove_edge_loop(context)
-                
-                elif mode_enabled(Mode.SELECT_LOOP):
-                    self.select_edge_loop(context)
-                    self.is_selecting = True
-                bpy.ops.ed.undo_push()
-
-                handled = True
-            if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
-                if utils.ui.inside_view_3d((event.mouse_x, event.mouse_y)):
-                    # Preemptively lock the points to prevent them from changing locations after the lock_points property is set to True.
-                    # This is okay to do because they will be unlocked in update_snap_context() if the property is set to False.
-                    self.snap_context.lock_snap_points
-                    bpy.ops.wm.call_menu_pie(name="FL_MT_FastLoop_Pie")
-                    handled = True
+        if event.type == btn('RIGHTMOUSE') and event.value == 'PRESS':
+            #if not utils.common.prefs().disable_pie:
+            if utils.ui.inside_view_3d((event.mouse_x, event.mouse_y)):
+                # Preemptively lock the points to prevent them from changing locations after the lock_points property is set to True.
+                # This is okay to do because they will be unlocked in update_snap_context() if the property is set to False.
+                self.snap_context.lock_snap_points
+                bpy.ops.wm.call_menu_pie(name="FL_MT_FastLoop_Pie")
+            # else:
+            #     set_option('cancel', True)
+            handled = True
 
         if event.type in {'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
-            if event.ctrl:               
+            if event.ctrl:
                 self.segments += 1 if event.type == 'WHEELUPMOUSE' else - 1
                 if self.segments == 1:
+                    self.from_ui = False
                     set_mode(Mode.SINGLE)
+                    self.prev_mode = Mode.SINGLE
                 else:
+                    self.from_ui = False
                     set_mode(Mode.MULTI_LOOP)
+                    self.prev_mode = Mode.MULTI_LOOP
+                self.edge_pos_algorithm = self.get_edge_pos_algorithm()
                 self.update()
                 handled = True
             else:
@@ -311,36 +421,20 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         if event.type == 'MOUSEMOVE':
 
             if self.is_scaling and not event.alt and mode_enabled(Mode.MULTI_LOOP) and not mode_enabled(Mode.REMOVE_LOOP):
-                delta_x = event.mouse_x - self.start_mouse_pos_x
-                self.scale += delta_x * 0.01
+                utils.ops.cursor_warp(event)
+                delta_x = event.mouse_x - event.mouse_prev_x
+                delta_x *= 0.001 if event.shift else 0.01
+                self.scale += delta_x
             
-                self.update()
-                self.start_mouse_pos_x = event.mouse_x
-            
-            if event.ctrl and not event.alt and mode_enabled(Mode.MULTI_LOOP):
-                
-                if not self.is_scaling and event.type == 'MOUSEMOVE' and not self.is_selecting:
+                self.update_loops()
+                if self.update_positions_along_edges():
                     self.start_mouse_pos_x = event.mouse_x
+                else:
+                    self.ensure_bmesh()
+                    self.is_scaling = False
 
-                    self.is_scaling = True
-
-        if self.is_scaling and not event.ctrl:
-            self.is_scaling = False
-
-
-        if not event.alt and mode_enabled(Mode.EDGE_SLIDE):
-            if self.prev_mode is not None:
-                set_mode(self.prev_mode)
-                bpy.ops.ed.undo_push()
-            else:
-                set_mode(Mode.SINGLE)
+        if super().modal(context, event):
             handled = True
-        elif event.alt and not mode_enabled(Mode.EDGE_SLIDE):
-            self.prev_mode = get_active_mode()
-            set_mode(Mode.EDGE_SLIDE)
-            bpy.ops.fl.edge_slide('INVOKE_DEFAULT', invoked_by_op=True)
-            handled = True
-
 
         self.set_header(context)
         context.area.tag_redraw()
@@ -348,6 +442,38 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             return {'RUNNING_MODAL'}
         else:
             return {'PASS_THROUGH'}
+
+    def edge_slide_finished(self):
+        if self.prev_mode is not None:
+            set_mode(self.prev_mode)
+        else:
+            set_mode(Mode.SINGLE)
+       
+        bpy.ops.ed.undo_push()
+
+    def modal_select_edge_loop_released(self):
+        if not mode_enabled(Mode.REMOVE_LOOP):
+            if self.prev_mode is not None:
+                set_mode(self.prev_mode)
+            else:
+                set_mode(Mode.SINGLE)
+           
+
+    def modal_remove_edge_loop_released(self):
+        if self.prev_mode is not None:
+            set_mode(self.prev_mode)
+        else:
+            set_mode(Mode.SINGLE)
+
+    
+    def draw_3d(self, context):
+        super().draw_3d(context)
+
+        if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)) and self.current_edge is not None and self.loop_draw_points:
+
+            if self.use_even or self.loop_position_override:
+                utils.drawing.draw_point(self.world_mat @ self.edge_start_position, color=(1.0, 0.0, 0.0, 0.4))
+
 
     def cleanup(self, context):
         super().cleanup(context)
@@ -358,32 +484,33 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 self.snap_context.disable_increment_mode()
 
 
-    def update(self, nearest_co=None):
+    def update_loops(self, nearest_co=None):
 
         if self.current_edge is None:
-            return
+            return False
 
         if not self.is_scaling and nearest_co is not None:
             self.current_position = self.world_inv @ nearest_co
 
         if self.current_ring:
-            if not self.bm.is_valid:         
-                return
+            if not self.bm.is_valid:
+                return False
 
             if not self.is_scaling:
-                self.ring_loops = self.calc_edge_directions()
-
-        if mode_enabled(Mode.MULTI_LOOP) and self.segments == 1:
-            self.segments = 2
-
-        self.update_positions_along_edges()
+                self.distance, self.shortest_edge_len, self.edge_start_position, self.edge_end_position, self.is_loop = self.get_data_from_edge_ring()
 
     def update_positions_along_edges(self):
 
         self.loop_draw_points.clear()
         self.edge_data.clear()
+
+        if mode_enabled(Mode.MULTI_LOOP) and self.segments == 1:
+            self.segments = 2
             
-        for i, loop in enumerate(self.ring_loops.keys()):
+        for i, loop in enumerate(self.current_ring):
+
+            if not loop.is_valid:
+                return False
 
             points_on_edge = []
             for point_on_edge in self.get_posititons_along_edge(loop, i):
@@ -392,9 +519,10 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.edge_data.append(EdgeData(points_on_edge, loop))
             self.loop_draw_points.append(points_on_edge)
 
+        return True
+
 
     def update_snap_context(self):
-        if get_options().dirty:
             if self.use_snap_points:
                 self.snap_context.enable_increment_mode()
                 self.snap_context.set_snap_increment_divisions(self.snap_divisions)
@@ -409,17 +537,37 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 self.snap_context.unlock_snap_points()
                 
             self.snap_context.set_snap_factor(self.snap_factor)
-            set_option('dirty', False)
 
  
     def create_geometry(self, context, set_edge_flow=False):
-       
+        def order_points(edge_data):
+            points = []
+            if self.loop_position_override:
+                points = [data.points if self.flipped else list(reversed(data.points)) for data in self.edge_data]
+            else:
+                if get_active_mode() == Mode.SINGLE and self.mirrored:
+                    if not self.flipped:
+                        points = [data.points if self.offset < 0.5 else list(reversed(data.points)) for data in self.edge_data]
+
+                    else:
+                        points = [data.points if self.offset > 0.5 else list(reversed(data.points)) for data in self.edge_data]
+                
+                elif get_active_mode() == Mode.MULTI_LOOP and self.mirrored:
+                    points = [data.points if not self.flipped else list(reversed(data.points)) for data in self.edge_data]
+
+                else:
+                    points = [data.points if not self.flipped else list(reversed(data.points)) for data in self.edge_data]
+
+            return points
+
         num_segments = self.segments
         
-        if mode_enabled(Mode.MIRRORED):
-            num_segments = 2
-        elif mode_enabled(Mode.SINGLE):
+        if mode_enabled(Mode.SINGLE):
             num_segments = 1
+        
+        if self.mirrored:
+            num_segments *= 2
+            
 
         edges = [data.edge for data in self.edge_data]
       
@@ -428,55 +576,20 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             edge_verts_co = [(data.edge.other_vert(data.first_vert).co, data.first_vert.co) for data in self.edge_data]
         else:
             edge_verts_co = [(data.first_vert.co, data.edge.other_vert(data.first_vert).co) for data in self.edge_data]
+     
+        points = order_points(self.edge_data)
+        super().create_geometry(context, edges, points, edge_verts_co, num_segments, select_edges=self.select_new_edges or set_edge_flow)
 
-        flipped = self.flipped
-        points = [data.points if not flipped else list(reversed(data.points)) for data in self.edge_data]
-        
-        super().create_geometry(context, edges, points, edge_verts_co, num_segments, set_edge_flow)
 
-    
     def get_posititons_along_edge(self, loop: BMLoop, i):
-        points = []
-        world_mat = self.world_mat
-        
-        def add_point(point):
-            points.append(world_mat @ point)
-
-        def scale_point_along_edge(point, start, end, scale_fac):
-            return utils.math.scale_points_along_line([point], start, end, scale_fac)[0]
-        
-        def scale_point_along_edge_o(point, origin, scale_fac):
-            return utils.math.scale_points_about_origin([point], origin, scale_fac)[0]
-
-        def calculate_scale_factor(scale_factor2):
-            # Distance from the midpoint to the farthest point for the edge hovered over
-            l = self.shortest_edge_len
-
-            mid_to_farthest = ((l * (n - 1 )) / (2 * (n + 1))) * scale_factor2
-            end_to_farthest = l/2 - mid_to_farthest
-
-            mid_to_farthest2 = ((vec_len * (n - 1 )) / (2 * (n + 1)))
-            end_to_farthest2 = vec_len/2 - mid_to_farthest2
-
-            dist_difference = end_to_farthest2 - end_to_farthest
-
-            desired_dist = mid_to_farthest2 + dist_difference
-
-            if not isclose(mid_to_farthest2, 0.0):
-                scale_factor2 = desired_dist / mid_to_farthest2
-            else:
-                scale_factor2 = 0
-
-            return scale_factor2
-            
 
         flipped = self.flipped
-        
         opposite_edge = loop.link_loop_next.link_loop_next.edge
+  
         if not loop.edge.is_manifold and not opposite_edge.is_manifold and loop.edge.index != self.current_edge.index:
             flipped = not flipped
 
-        # Edge is not manifold, being moused over,  and it's the first edge in teh list
+        # Edge is not manifold, being moused over,  and it's the first edge in the list
         elif not loop.edge.is_manifold and loop.edge.index == self.current_edge.index and i == 0:
             if opposite_edge.is_manifold:
                 flipped = not flipped
@@ -487,193 +600,13 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
         start = loop.vert.co
         end = loop.edge.other_vert(loop.vert).co
-      
-        vec_len = (start-end).length
 
         factor = self.offset
-        use_even = self.use_even
-        straight = False
-        final = None
-        if mode_enabled(Mode.MIRRORED):  
-            
-            if use_even:
-                factor = utils.math.remap(0.0, vec_len, 0.0, self.current_edge.calc_length(), self.offset)
-          
-            pos = start.lerp(end, factor) 
-            pos_other = end.lerp(start, factor)
 
-            _, fac = intersect_point_line(pos, start, end)
-            if fac >  0.5:
-                
-                pos = end.lerp(start, fac)
-                pos_other = start.lerp(end, fac)
-                
-            temp = [pos, pos_other]
-            if flipped:
-                temp.reverse()
-            final = temp[0] 
-            final_other = temp[1] 
+        if self.insert_at_midpoint:
+            factor = 0.5
 
-            add_point(final)
-            add_point(final_other)
+        straight = self.perpendicular
+        use_even = self.use_even and not straight
 
-        elif mode_enabled(Mode.SINGLE):
-            if not straight:
-                if use_even:
-                        factor = utils.math.remap(0.0, vec_len, 0.0, self.current_edge.calc_length(), self.offset)
-                if not flipped: 
-                    final = start.lerp(end, utils.math.clamp(0.0, factor, 1.0))
-                else:   
-                    final = end.lerp(start, utils.math.clamp(0.0, factor, 1.0))
-            else:
-
-                plane_normal = (self.edge_end_position - self.edge_start_position).normalized()
-                plane_origin = self.current_position
-                isect_point = intersect_line_plane(start, end, plane_origin, plane_normal)
-                if isect_point is not None:
-                    final = utils.math.constrain_point_to_line_seg(start, isect_point, end)
-                    
-            add_point(final)
-
-        else:
-
-            if not self.insert_at_midpoint:
-                if use_even:  
-                    factor = utils.math.remap(0.0, vec_len, 0.0, self.current_edge.calc_length(), self.offset)
-
-                origin = None
-                if not flipped:
-                    origin = start.lerp(end, utils.math.clamp(0.0, factor, 1.0))
-                else:
-                    origin = end.lerp(start, utils.math.clamp(0.0, factor, 1.0))
-
-                c = utils.math.clamp(0, self.scale, 1)
-                init_scale_factor = utils.math.remap(0.0, 1.0, 0.0, 1.0 + (2.0/( self.segments - 1.0)), c)
-                scale_factor = init_scale_factor
-                
-                n = self.segments
-                for j in range(0, n) :
-                    scale_factor = init_scale_factor
-                    percent = ((1.0 + j) / ( n + 1.0))
-
-                    if not flipped:
-                        if not self.use_multi_loop_offset:
-                            pos = end + (start - end) * percent
-                            
-                            #Make insides even?
-                            scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-                            scale = scale_point_along_edge(pos, start, end, scale_factor)
-                            final = scale + (origin - ((start + end) * 0.5))
-                        else:
-                            pos = origin + (end - start) * percent
-                            scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-                            scale = scale_point_along_edge_o(pos, origin, scale_factor)
-                            final = scale - ((scale_factor*(end-start))/(n+1))
-                        
-                        final = utils.math.constrain_point_to_line_seg(start, final, end)
-
-                    else:
-                        if not self.use_multi_loop_offset:
-                            pos = start + (end - start) * percent
-                            # Make insides even?
-                            scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-                            scale = scale_point_along_edge(pos, start, end, scale_factor)
-                            final = scale + (origin - ((start + end) * 0.5))
-                        else:
-                            pos = origin + (start - end) * percent
-                            scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-                            scale = scale_point_along_edge_o(pos, origin, scale_factor)
-                            final = scale - ((scale_factor * (start-end)) / (n + 1))
-                        
-                        final = utils.math.constrain_point_to_line_seg(end, final, start)
-
-                    add_point(final)
-                    
-            elif self.insert_at_midpoint and not self.use_multi_loop_offset:
-                if use_even:
-                    factor = 0.5
-
-                init_origin = start.lerp(end, utils.math.clamp(0.0, factor, 1.0))
-                origin = init_origin
-                c = utils.math.clamp(0, self.scale, 1)
-                init_scale_factor = utils.math.remap(0.0, 1.0, 0.0, 1.0 + (2.0/( self.segments - 1.0)), c)
-                scale_factor = self.scale
-
-                n = int(self.segments)
-                for i in range(0, n) :
-                    percent = ((1.0 + i) / ( n + 1.0))
-
-                    origin = init_origin
-                    scale_factor = init_scale_factor
-                    if use_even:
-                       
-                            scale_factor = calculate_scale_factor(scale_factor)                        
-
-                    if not flipped:
-                        
-                        pos = end + (start - end) * percent
-                      
-                        # Make insides even?
-                        #scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-
-                        scale = scale_point_along_edge(pos, start, end, scale_factor)
-                        final = scale + (origin - ((start + end) * 0.5))
-
-                        final = utils.math.constrain_point_to_line_seg(start, final, end)
-
-                    else:
-                        origin = end.lerp(start, utils.math.clamp(0.0, factor, 1.0))
-                        pos = start + (end - start) * percent
-                        
-                        # Make insides even?
-                        #scale_factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, scale_factor)
-                        scale = scale_point_along_edge(pos, start, end, scale_factor)
-                        final = scale + (origin - ((start + end) * 0.5))
-
-                        final = utils.math.constrain_point_to_line_seg(end, final, start)
-
-                    add_point(final)
-
-            elif self.insert_at_midpoint and self.use_multi_loop_offset:
-
-                if use_even:    
-                    factor = utils.math.remap(0.0, vec_len, 0.0, self.shortest_edge_len, factor)
-
-                init_origin = start.lerp(end, utils.math.clamp(0.0, factor, 1.0))
-                origin = init_origin
-                c = utils.math.clamp(0, self.scale, 1)
-                init_scale_factor = utils.math.remap(0.0, 1.0, 0.0, 1.0 + (2.0/( self.segments - 1.0)), c)
-                scale_factor = init_scale_factor
-
-                n = int(self.segments)
-                for i in range(0, n) :
-                    percent = ((1.0 + i) / ( n + 1.0))
-                    origin = init_origin
-                    scale_factor = init_scale_factor
-                    last = (n-1)
-
-                    if use_even:
-                        if i == last:
-                            scale_factor = calculate_scale_factor(scale_factor)
-                        else:
-                            origin = start + (end - start) * 0.5
-                        
-                    if not flipped:          
-                        pos = origin + (end - start) * percent
-                       
-                        scale = scale_point_along_edge_o(pos, origin, scale_factor)
-                        final = scale - ((scale_factor*(end-start))/(n+1))
-                        final = utils.math.constrain_point_to_line_seg(start, final, end)
-
-                    else:
-                        origin = end.lerp(start, utils.math.clamp(0.0, factor, 1.0))
-                        if i != last:
-                            origin = start + (end - start) * 0.5
-                        pos = origin + (start - end) * percent
-                        scale = scale_point_along_edge_o(pos, origin, scale_factor)
-                        final = scale - ((scale_factor * (start-end)) / (n + 1))
-                        final = utils.math.constrain_point_to_line_seg(end, final, start)
-
-                    add_point(final)
-
-        return points
+        return self.edge_pos_algorithm.execute(self, start, end, factor, use_even, flipped, self.mirrored, straight)

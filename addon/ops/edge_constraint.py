@@ -8,6 +8,14 @@ from mathutils.geometry import intersect_point_line, intersect_line_plane
 
 from .. import utils
 
+
+from enum import Enum
+class Mode(Enum):
+    EDGE_SLIDE = 1
+    EDGE_CONSTRAINT = 2
+    PASS_THROUGH = 3
+
+
 @dataclass
 class EdgeVertexSlideData():
     
@@ -30,6 +38,7 @@ class EdgeVertexSlideData():
 class EdgeConstraint_Translation():
     active_axis = None
     axis_vec = None
+    constrained_to_bounds = True
     axis_draw_points = []
     axis_draw_colors = []
     slide_edge_draw_lines = []
@@ -37,16 +46,27 @@ class EdgeConstraint_Translation():
     def finished(self, context):
         self.axis_draw_points.clear()
 
+
     def draw_callback_3d(self, context):
          if self.slide_edge_draw_lines:
             for line in self.slide_edge_draw_lines:
-                utils.drawing.draw_line(line, line_width=3)
+                utils.drawing.draw_line(line, line_width=1)
 
     def draw_callback_px(self, context):
         if self.axis_draw_points:
             for i, points in enumerate(self.axis_draw_points):
                 utils.drawing.draw_line_2d(points, line_color=self.axis_draw_colors[i], line_width=1)
-    
+
+    def modal(self, context, event):
+        handled = False
+
+        if self.is_sliding and (self.mode.value == Mode.EDGE_CONSTRAINT.value) and event.shift:
+            self.constrained_to_bounds = False
+            handled = True
+        elif self.is_sliding and (self.mode.value == Mode.EDGE_CONSTRAINT.value) and not event.shift:
+            self.constrained_to_bounds = True
+        return handled
+
     def calculate_axis_draw_points(self, context, nearest_vert, current_axis, world_mat):
         self.axis_draw_points.clear()
         axis_color = {"X": [1, 0, 0, 1], "Y": [0, 1, 0, 1], "Z":[0, 0, 1, 1]}
@@ -130,7 +150,7 @@ class EdgeConstraint_Translation():
 
         return slide_verts
 
-    #TODO: Fix invalid bm vert error when undoing while edge constaitn is active
+
     def edge_constraint_slide(self, context, mouse_coords, axis, world_mat):
         ray_origin, ray_dir_vec = utils.raycast.get_ray(context.region, context.region_data, mouse_coords)
         plane_co = world_mat @ self.nearest_vert_co
@@ -147,6 +167,8 @@ class EdgeConstraint_Translation():
         for data in self.slide_verts.values():
 
             vert = data.vert
+            if not vert.is_valid:
+                return
 
             dir_a = data.dir_side[0]
             dir_b = data.dir_side[1]
@@ -168,8 +190,11 @@ class EdgeConstraint_Translation():
                 intersect_vec = intersect_line_plane(start, end, start + plane_offset, plane_normal)
 
                 if intersect_vec:
-                    perc = intersect_point_line(intersect_vec, start, end)[1]
-                    if 1.0 >= perc >= 0.0:
+                    if self.constrained_to_bounds:
+                        perc = intersect_point_line(intersect_vec, start, end)[1]
+                        if 1.0 >= perc >= 0.0:
+                            vert.co = from_origin @ intersect_vec
+                    else:
                         vert.co = from_origin @ intersect_vec
 
             elif factor < 0.0 and dir_b is not None:
@@ -192,8 +217,11 @@ class EdgeConstraint_Translation():
 
                 intersect_vec = intersect_line_plane(start, end, start + plane_offset, plane_normal)
                 if intersect_vec:
-                    perc = intersect_point_line(intersect_vec, start, end)[1]
-                    if 1.0 >= perc >= 0.0:
+                    if self.constrained_to_bounds:
+                        perc = intersect_point_line(intersect_vec, start, end)[1]
+                        if 1.0 >= perc >= 0.0:
+                            vert.co = from_origin @ intersect_vec
+                    else:
                         vert.co = from_origin @ intersect_vec
                
         bmesh.update_edit_mesh(context.active_object.data, destructive=False)
