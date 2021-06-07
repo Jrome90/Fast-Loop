@@ -401,23 +401,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             #     set_option('cancel', True)
             handled = True
 
-        if event.type in {'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
-            if event.ctrl:
-                self.segments += 1 if event.type == 'WHEELUPMOUSE' else - 1
-                if self.segments == 1:
-                    self.from_ui = False
-                    set_mode(Mode.SINGLE)
-                    self.prev_mode = Mode.SINGLE
-                else:
-                    self.from_ui = False
-                    set_mode(Mode.MULTI_LOOP)
-                    self.prev_mode = Mode.MULTI_LOOP
-                self.edge_pos_algorithm = self.get_edge_pos_algorithm()
-                self.update()
-                handled = True
-            else:
-                context.area.tag_redraw()
-
         if event.type == 'MOUSEMOVE':
 
             if self.is_scaling and not event.alt and mode_enabled(Mode.MULTI_LOOP) and not mode_enabled(Mode.REMOVE_LOOP):
