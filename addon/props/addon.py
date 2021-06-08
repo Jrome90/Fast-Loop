@@ -141,7 +141,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     def segments_changed(self, context):
         scene = context.scene
         scene = bpy.context.scene
-        scene.Loop_Cut_Lookup_Index = self.segments-1
+        scene.Loop_Cut_Lookup_Index = utils.math.clamp(0,self.segments-1, 8)
 
     segments: bpy.props.IntProperty(
         name='Segments',

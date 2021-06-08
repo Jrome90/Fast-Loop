@@ -244,8 +244,10 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 return ComputeEdgePostitonsSingleAlgorithm()
             else:
                 return ComputeEdgePostitonsMultiAlgorithm()
-        elif active_mode in {Mode.SINGLE, Mode.MULTI_LOOP} and self.loop_position_override:
+        elif active_mode in {Mode.SINGLE, Mode.MULTI_LOOP} and self.loop_position_override and self.segments < 10:
             return ComputeEdgePostitonsOverrideAlgorithm()
+        else:
+            return ComputeEdgePostitonsMultiAlgorithm()
 
     
     def event_raised(self, event, value):
@@ -525,7 +527,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     def create_geometry(self, context, set_edge_flow=False):
         def order_points(edge_data):
             points = []
-            if self.loop_position_override:
+            if self.loop_position_override and self.segments < 10:
                 points = [data.points if self.flipped else list(reversed(data.points)) for data in self.edge_data]
             else:
                 if get_active_mode() == Mode.SINGLE and self.mirrored:
