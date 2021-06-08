@@ -104,7 +104,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     multi_loop_offset: bpy.props.BoolProperty(
         name='Multi Loop Offset',
         description='Offset the multi loop',
-        default=True,
+        default=False,
     )
 
     insert_midpoint: bpy.props.BoolProperty(
