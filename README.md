@@ -1,6 +1,8 @@
 # Fast Loop
 Version: 0.0.8 Alpha
 
+**Out of date**
+
 ## What is Fast Loop?
 Fast loop makes inserting new loops easy. With the ability to preview the loop(s) before actually inserting them, you dont need to worry about making adjustments afterwards.
 With the following modes you can cut the time it takes to insert loops in half or more*:  
