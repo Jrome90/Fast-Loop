@@ -46,25 +46,26 @@ class DrawFastLoopUI():
             col.prop(options, "select_new_edges" , toggle=True, text="Select New Edge Loops", icon='RESTRICT_SELECT_OFF')
             col.prop(options, "flipped" , toggle=True, text="Flip", icon='ARROW_LEFTRIGHT')
             col.prop(options, "use_even" , toggle=True, text="Even", icon='SNAP_MIDPOINT')
+            col.prop(options, "multi_loop_offset" , toggle=True, text="Multi Loop Offset", icon='ANCHOR_LEFT')
 
             box = layout.split()
 
             b = box.box()
             col = b.column(align=True)
 
-            col.label(text="Muli Loop Options")
+            col.label(text="Multi Loop Settings")
 
             options = utils.ops.options()
             if options is not None:
-                col.prop(options, "segments", text="Loops")
+                # col.prop(options, "segments", text="Loops")
+                #col.label(text="Multi Loop:")
                 col.prop(options, "scale", text="Scale")
-                col.prop(options, "multi_loop_offset" , toggle=True, text="Multi Loop Offset", icon='ANCHOR_LEFT')
                 
 
             box = layout.split()
             b = box.box()
             col = b.column()
-            col.prop(options, "loop_position_override" , toggle=True, text="Custom Values", icon='SHADERFX')
+            col.prop(options, "loop_position_override" , toggle=True, text="Position Override", icon='SHADERFX')
 
             prefs = utils.common.prefs()
             col.prop(prefs, "interpolation_type")
@@ -100,3 +101,12 @@ class DrawFastLoopUI():
             preferences = utils.common.prefs()
             if preferences is not None:
                 col.prop(preferences, "set_edge_flow_enabled" , toggle=True, text="Set Edge Flow")
+
+                box = col.box()
+
+                row = box.row()
+                row.prop(preferences, "tension", text= "Tension", expand = True)
+                row = box.row()
+                row.prop(preferences, "iterations", text= "Iterations", expand = True)
+                row = box.row()
+                row.prop(preferences, "min_angle", text= "Min Angle", expand = True)
