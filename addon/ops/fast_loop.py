@@ -196,6 +196,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                         {"Change Loop Number 1-9 | +-": []},
                         {"Even": ['EVENT_E']},
                         {"Flipped": ['EVENT_F']},
+                        {"MLO": ['EVENT_O']},
                         {"Mirrored": ['EVENT_M']},
                         {"Midpoint": ['EVENT_C']},
                         {"Select New": ['EVENT_Q']},
@@ -316,7 +317,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         
         handled = False
 
-        if event.type in {'M', 'E', 'F', 'S', 'X', 'W', 'C', 'Q', 'SLASH'} and not (event.ctrl or event.alt):
+        if event.type in {'M', 'E', 'F', 'S', 'X', 'W', 'C', 'Q', 'SLASH', 'O'} and not (event.ctrl or event.alt):
 
             if event.type == 'M' and event.value == 'PRESS':
                 self.mirrored = not self.mirrored
@@ -351,6 +352,9 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             
             elif event.type == 'SLASH' and event.value == 'PRESS':
                 self.perpendicular = not self.perpendicular
+
+            elif event.type == 'O' and event.value == 'PRESS':
+                self.use_multi_loop_offset = not self.use_multi_loop_offset
 
             handled = True
 
