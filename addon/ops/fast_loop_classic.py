@@ -143,6 +143,8 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
     
     def update_current_ring(self):
         self.current_ring = list(utils.mesh.bmesh_edge_ring_walker(self.current_edge))
+        if len(self.current_ring) < 2:
+            return False
         return True
     
 
