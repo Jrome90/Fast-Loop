@@ -359,7 +359,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
         return None
 
     # Modified blender source code implementation to calculate the edges to slide one. 
-    # Does not support Ngons or verts with a valence > 4. 
+    # Does not support Ngons
     def calculate_edge_slide_directions(self, current_edge):
         def get_slide_edge(loop: BMLoop, edge_next: BMEdge, next_vert: BMVert):
             first_loop = loop
@@ -450,56 +450,43 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
 
         condition = True
         while condition:
-            skip  = False
-            if len(v.link_edges) > 4 and not any([edge.is_boundary for edge in v.link_edges]):
-                skip = True
+            slide_verts[v.index] = EdgeVertexSlideData()
+            sv: EdgeVertexSlideData = slide_verts[v.index]
+            sv.vert = v
+            sv.vert_orig_co = v.co.copy()
+
+
+            if l_a is not None or l_a_prev is not None:
+                l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_a if l_a is not None else l_a_prev, v)
+                sv.vert_side[0] = l_tmp.edge.other_vert(v)
+                sv.dir_side[0] = vec_a.normalized()
+                sv.edge_len[0] = vec_a.length
             
-            if not skip:
+            if l_b is not None or l_b_prev is not None:
+                l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_b if l_b is not None else l_b_prev, v)
+                sv.vert_side[1] = l_tmp.edge.other_vert(v)
+                sv.dir_side[1] = vec_b.normalized()
+                sv.edge_len[1] = vec_b.length
+        
+            v = edge.other_vert(v)
+            edge = get_next_edge(v, edge, edges)     
+            if edge is None:
                 slide_verts[v.index] = EdgeVertexSlideData()
                 sv: EdgeVertexSlideData = slide_verts[v.index]
                 sv.vert = v
                 sv.vert_orig_co = v.co.copy()
 
-
-            if l_a is not None or l_a_prev is not None:
-                if not skip:
-                    l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_a if l_a is not None else l_a_prev, v)
-                    sv.vert_side[0] = l_tmp.edge.other_vert(v)
-                    sv.dir_side[0] = vec_a.normalized()
-                    sv.edge_len[0] = vec_a.length
-            
-            if l_b is not None or l_b_prev is not None:
-                if not skip:
-                    l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_b if l_b is not None else l_b_prev, v)
-                    sv.vert_side[1] = l_tmp.edge.other_vert(v)
-                    sv.dir_side[1] = vec_b.normalized()
-                    sv.edge_len[1] = vec_b.length
-            
-            v = edge.other_vert(v)
-            edge = get_next_edge(v, edge, edges)     
-            if edge is None:
-                skip = False
-                if len(v.link_edges) > 4 and not any([edge.is_boundary for edge in v.link_edges]):
-                    skip = True
-                if not skip:
-                    slide_verts[v.index] = EdgeVertexSlideData()
-                    sv: EdgeVertexSlideData = slide_verts[v.index]
-                    sv.vert = v
-                    sv.vert_orig_co = v.co.copy()
-
                 if l_a is not None:
-                    if not skip:
-                        l_tmp = utils.mesh.get_loop_other_edge_loop(l_a, v)
-                        sv.vert_side[0] = l_tmp.edge.other_vert(v)
-                        sv.dir_side[0] =  sv.vert_side[0].co - v.co
-                        sv.edge_len[0] = sv.dir_side[0].length
+                    l_tmp = utils.mesh.get_loop_other_edge_loop(l_a, v)
+                    sv.vert_side[0] = l_tmp.edge.other_vert(v)
+                    sv.dir_side[0] =  sv.vert_side[0].co - v.co
+                    sv.edge_len[0] = sv.dir_side[0].length
 
                 if l_b is not None:
-                    if not skip:
-                        l_tmp = utils.mesh.get_loop_other_edge_loop(l_b, v)
-                        sv.vert_side[1] = l_tmp.edge.other_vert(v)
-                        sv.dir_side[1] =  sv.vert_side[1].co - v.co
-                        sv.edge_len[1] = sv.dir_side[1].length
+                    l_tmp = utils.mesh.get_loop_other_edge_loop(l_b, v)
+                    sv.vert_side[1] = l_tmp.edge.other_vert(v)
+                    sv.dir_side[1] =  sv.vert_side[1].co - v.co
+                    sv.edge_len[1] = sv.dir_side[1].length
                 break 
 
             l_a_prev = l_a
