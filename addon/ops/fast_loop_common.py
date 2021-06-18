@@ -295,6 +295,9 @@ class FastLoopCommon():
         if not event.ctrl and (event.type in {'RIGHT_SHIFT', 'LEFT_SHIFT'} and event.value == 'RELEASE'):
             self.modal_remove_edge_loop_released()
             handled = True
+        elif not event.shift and (event.type in {'RIGHT_CTRL', 'LEFT_CTRL'} and event.value == 'RELEASE'):
+            self.modal_remove_edge_loop_released()
+            handled = True
 
         if not utils.common.prefs().use_spacebar:
 
