@@ -113,7 +113,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
         
 
     def invoke(self, context, event):
-        self.report({'INFO'}, 'Edge Slide Started')
+        # self.report({'INFO'}, 'Edge Slide Started')
         self.set_status(context)
         self.setup(context)
         self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, (context, ), 'WINDOW', 'POST_PIXEL')
