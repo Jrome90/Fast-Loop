@@ -22,7 +22,6 @@ class EdgeVertexSlideData():
     dir_side: List[Vector] =  field(default_factory=lambda: [None, None])
     edge_len: List[float] = field(default_factory=lambda: [None, None])
     
-    freeze_vert = False
     def __repr__(self) -> str:
         vert_side_a = self.vert_side[0].index if self.vert_side[0] is not None else None
         vert_side_b = self.vert_side[1].index if self.vert_side[1] is not None else None
@@ -312,25 +311,26 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
                     if vert.index not in visited_verts:
                         vert_co = self.world_mat @ vert.co
                         vert_2d = utils.math.location_3d_to_2d(vert_co)
-                        dist_sq = (mouse_co - vert_2d).length_squared
-                        if dist_sq < min_dist_sq:
-                            nearest_vert = vert
-                            nearest_vert_2d = vert_2d
-                            min_dist_sq = dist_sq
+                        if vert_2d is not None:
+                            dist_sq = (mouse_co - vert_2d).length_squared
+                            if dist_sq < min_dist_sq:
+                                nearest_vert = vert
+                                nearest_vert_2d = vert_2d
+                                min_dist_sq = dist_sq
 
                         visited_verts.add(vert.index)
         if nearest_vert is not None:
             for vert_edge in nearest_vert.link_edges:
                 if vert_edge.select:
                     other_vert_co_2d = utils.math.location_3d_to_2d(self.world_mat @ vert_edge.other_vert(nearest_vert).co)
+                    if other_vert_co_2d is not None:
+                        edge_2d = (other_vert_co_2d - nearest_vert_2d)
+                        if not isclose(edge_2d.length, 0.0):
+                            angle = (nearest_vert_2d - mouse_co).angle(edge_2d)
 
-                    edge_2d = (other_vert_co_2d - nearest_vert_2d)
-                    if not isclose(edge_2d.length, 0.0):
-                        angle = (nearest_vert_2d - mouse_co).angle(edge_2d)
-
-                        if angle < min_angle:
-                            nearest_edge = vert_edge
-                            min_angle = angle
+                            if angle < min_angle:
+                                nearest_edge = vert_edge
+                                min_angle = angle
             
         if nearest_vert is not None:
             return nearest_vert, nearest_edge
