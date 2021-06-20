@@ -5,16 +5,24 @@ Version: 0.0.9 Alpha
 ## What is Fast Loop?
 Fast loop makes inserting new loops easy. With the ability to preview the loop(s) before actually inserting them, you dont need to worry about making adjustments afterwards.
 There are two modes for inserting loops:
-* Single: Insert a single loop.
+* Single: Insert a single loop.  
+<img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Single.gif" width="256" height="256">  
+
 * Mutli Loop: Insert two or more loops.
+<img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Multi.gif" width="256" height="256"> 
+
 Activate single mode by pressing 1 on the keyboard or multi loop mode by pressing 2-9 on the keyboard.
 You can also increase the number of loops by pressing = or numpdad+, or decrease with - or numpad-.
 
 In addition to the two modes to insert loops, there are sub modes that can be used together with those modes:
-* Midpoint: Insert the loops at midpoint of the edge the mouse is near.
-* Perpendicular: The inserted loop is perpendicular to the edge that the mouse is near.
-* Mirror: Mirror the loops across the midpoint of the edge mouse is near.
+* Midpoint: Insert the loops at midpoint of the edge the mouse is near.  
+<img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Midpoint.gif" width="256" height="256">  
 
+* Perpendicular: The inserted loop is perpendicular to the edge that the mouse is near.  
+<img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Perpendicular.gif" width="256" height="256">  
+
+* Mirror: Mirror the loops across the midpoint of the edge mouse is near.  
+<img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Mirrored.gif" width="256" height="256">  
 
 Toggle the abilty to change the scale(spacing) of the loops when using multi loop mode with the W key.
 
@@ -27,12 +35,18 @@ Locking also keeps it from moving when hovering over different edges.
 * When snap divisions is set to one, use the factor slider to set a custom percentage to snap to. You can press F to invert the value to flip to the other side.
 
 Fast loop isn't just for inserting loops. You can alter exising loops by sliding them around or removing them too.    
-* To slide the selected loop or edge(s) press and hold alt to invoke the edge slide operator and then click and drag.  
-  * holding ctrl while pressing alt makes the loop even depending on what side it's on 
-  * holding shift while pressing alt tries to preserve the loop's shape
+* To slide the selected loop or edge(s) press and hold alt to invoke the edge slide operator and then click and drag.   
+ <img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Edge_Slide.gif" width="256" height="256"> 
+ 
+  * holding ctrl while pressing alt makes the loop even depending on what side it's on  
+  <img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Edge_Slide_Ctrl.gif" width="256" height="256"> 
+  
+  * holding shift while pressing alt tries to preserve the loop's shape  
+  <img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Edge_Slide_Shift.gif" width="256" height="256">  
   
   When you are done release alt.  
-Switch to Select Loop mode to select a different edge.  
+  
+Switch to Select Loop mode to select an edge loop.  
 Remove loops by switching to Remove Loop mode.
 
 ### New in 0.0.9  
@@ -56,25 +70,8 @@ Fast Loop Classic is a trimmed down version of Fast Loop.
   
  ### Edge Slide
 The operator that both versions of fast loop use can also be a standalone operator.
- When invoked directly using the shortcut alt+` it behaves differently and has an additional feature.  
- * Click and drag near a vertex to slide selected edges or loops in the desired direction. Sometimes this doesn't behave very well when selected edges share a vertex. 
- If you cannot get it to slide in the right direction, rotate the viewport and/or select a different vertex on the loop or edge.  
- * ctrl+mouse click and drag to make the edge even.
- * shift+mouse click and drag to try to preserve the loop's shape
- 
- * Edge constraint translation of selected edges or vertices
-   * Press X, Y or Z to toggle edge constraint slide on their respective axis.  
-    When edge constraint is active, hold down shift to disable constrain to bounding edges.
- * Press S to toggle selection mode.  **Warning:** This just passes through all input. It's possible to invoke any operators.  
-   
- Supported orientations:
- * Global
- * Local
- * View
- * Cursor
- * Custom
+Read more about the operator [Here](https://github.com/Jrome90/Fast-Loop/wiki/Edge-Slide-Operator)  
 
- For more information please read the [Wiki](https://github.com/Jrome90/Fast-Loop/wiki)
  
 ## Install:
 * Download the zip file from github.
@@ -87,7 +84,7 @@ The operator that both versions of fast loop use can also be a standalone operat
 * Click on either Fast Loop Classic or Fast Loop Toolbar button to activate the active tool version.
 * Alternatively, use the shortcut keys: insert or alt+insert for Fast Loop Classic and Fast Loop operators respectively. 
 
-## Edge Slide
+## Edge Slide Operator
 * Use the shortcut alt+`
 
 See the help tab under preferences for each operators hotkeys.
