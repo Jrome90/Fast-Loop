@@ -72,9 +72,16 @@ def set_prop(prop, value):
 
 
 
-class FastLoopCommon():
+class FastLoopCommon(bpy.types.Operator):
     '''Methods, attributes, and properties that Fast Loop and Fast Loop Classic share.
     '''
+
+    invoked_by_tool: bpy.props.BoolProperty(
+        name='tool invoked',
+        description='Do not change. This is meant to be hidden',
+        default=False,
+        options={'HIDDEN', 'SKIP_SAVE'}
+    )
 
     is_running = False
     @property
@@ -166,10 +173,11 @@ class FastLoopCommon():
         self.bm.select_mode = {'EDGE'}
         self.bm.select_flush_mode()
 
-        self.is_running = True
+        if self.invoked_by_tool:
+            self.is_running = True
 
     def invoke(self, context, event):
-        if self.is_running or self.cancelled:
+        if (self.invoked_by_tool and self.is_running) or self.cancelled:
             return {"CANCELLED"}
 
         self.setup(context)

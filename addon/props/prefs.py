@@ -79,9 +79,11 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
     def draw_general(self, context, layout):
         layout.prop(self, "use_rcs")
-        layout.prop(self, "disable_pie")  
+        # layout.prop(self, "disable_pie")  
         layout.prop(self, "use_spacebar")  
         layout.prop(self, "occlude_lines")  
+
+        layout.operator("ui.reset_operator", text="Click this if an error occured while a fast Loop operator was running, and now it wont start.")
     
     def draw_keymaps(self, context, layout):
 
@@ -155,7 +157,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
         add_shortcut_info({"Midpoint": ['EVENT_C']}, text_box, icons_box)
         add_shortcut_info({"Perpendicular: /": ['ERROR']}, text_box, icons_box)
         add_shortcut_info({"Select New Edges": ['EVENT_Q']}, text_box, icons_box)
-        #add_shortcut_info({"Multi Loop": ['EVENT_N']}, text_box, icons_box)
+        add_shortcut_info({"Multi Loop Offset": ['EVENT_O']}, text_box, icons_box)
         add_shortcut_info({"Toggle Change Scale": ['EVENT_W']}, text_box, icons_box)
         add_shortcut_info({"Snap Points": ['EVENT_S']}, text_box, icons_box)
         add_shortcut_info({"Lock Snap Points": ['EVENT_X']}, text_box, icons_box)
@@ -175,6 +177,8 @@ class AddonPrefs(bpy.types.AddonPreferences):
         add_shortcut_info({"Slide Edge Preserve Space": ['EVENT_SHIFT','MOUSE_LMB']}, text_box, icons_box)
         add_shortcut_info({"Toggle Edge/Vertex Constraint Translation Along Axis (XYZ)": ['EVENT_X', 'EVENT_Y', 'EVENT_Z']}, text_box, icons_box)
         add_shortcut_info({"Toggle Selection Mode": ['EVENT_S']}, text_box, icons_box)
+
+
         
         
     @staticmethod

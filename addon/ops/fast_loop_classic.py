@@ -7,17 +7,10 @@ from . fast_loop_common import FastLoopCommon, EdgeData, Mode, mode_enabled, set
 from .. snapping.snapping import SnapContext
 
 
-class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
+class FastLoopClassicOperator(FastLoopCommon):
     bl_idname = 'fl.fast_loop_classic'
     bl_label = 'fast_loop clasic operator'
     bl_options = {'REGISTER'}
-
-    invoked_by_tool: bpy.props.BoolProperty(
-        name='tool invoked',
-        description='Do not change. This is meant to be hidden',
-        default=False,
-        options={'HIDDEN', 'SKIP_SAVE'}
-    )
 
     def set_header(self, context):
         offset_str = None
