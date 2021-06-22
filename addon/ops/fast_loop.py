@@ -170,7 +170,7 @@ class FastLoopOperator(FastLoopCommon):
             offset_str,
             # * self.current_edge.calc_length() if self.current_edge is not None else 0.0
             f"Offset: {self.distance * scale:07.3f}",
-            f"Scale: {self.scale :02.3f}",
+            f"Scale: {self.scale * 100 :02.1f}",
             f"Even: {self.use_even}",
             f"Flipped: {self.flipped}",
             f"Loops: {self.segments}",
