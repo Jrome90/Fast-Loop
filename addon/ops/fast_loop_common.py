@@ -435,22 +435,30 @@ class FastLoopCommon():
 
     def draw_3d(self, context):
         if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)) and self.current_edge is not None and self.loop_draw_points:
-            
+            color = utils.common.prefs().loop_color
+            line_width = utils.common.prefs().line_width
             transposed_array = list(map(list, zip(*self.loop_draw_points)))
             for loop in transposed_array:
                 if self.is_loop:
-                    utils.drawing.draw_line_loop(loop)
+                    utils.drawing.draw_line_loop(loop, color, line_width)
                 else:
-                    utils.drawing.draw_line(loop)
+                    utils.drawing.draw_line(loop, color, line_width)
+                
+
+                if utils.common.prefs().draw_loop_vertices:
+                    utils.drawing.draw_points(loop, utils.common.prefs().vertex_color, utils.common.prefs().vertex_size)
 
             if self.use_even:
                 utils.drawing.draw_point(self.world_mat @ self.edge_start_position, color=(1.0, 0.0, 0.0, 0.4))
 
+
         elif mode_enabled(Mode.REMOVE_LOOP) and self.remove_loop_draw_points:
-            utils.drawing.draw_lines(self.remove_loop_draw_points, line_color=(1.0, 0.0, 0.0, 0.9))
+            utils.drawing.draw_lines(self.remove_loop_draw_points, color=(1.0, 0.0, 0.0, 0.9))
 
         self.remove_loop_draw_points.clear()
 
+
+        # Debug points
         if self.points_3d:
             utils.drawing.draw_points(self.points_3d)
             self.points_3d.clear()

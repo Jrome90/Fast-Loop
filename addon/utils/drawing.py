@@ -15,9 +15,13 @@ COLOR_LINE = (0.5, 0.5, 1, 1)
 def draw_point(point, color=(1.0, 1.0, 0.0, 1), size=3.0):
     draw_points([point], color=color, size=size)
 
-def draw_points(points, color=(1.0, 1.0, 0.0, 1), size=3.0):
+def draw_points(points, color=(1.0, 1.0, 0.0, 1), size=3.0, occlude=True):
     ui_scale = ui.get_ui_scale()
     bgl.glPointSize(size * ui_scale)
+
+    if common.prefs().occlude_points and occlude:
+        bgl.glEnable(bgl.GL_DEPTH_TEST)
+        bgl.glDepthFunc(bgl.GL_LEQUAL)
    
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'POINTS', {"pos": points})
@@ -25,6 +29,8 @@ def draw_points(points, color=(1.0, 1.0, 0.0, 1), size=3.0):
     shader.uniform_float("color", color)
 
     batch.draw(shader)
+
+    bgl.glDisable(bgl.GL_DEPTH_TEST)
 
 def draw_line_loop(points, line_color=(0.0, 1.0, 0.5, 0.9), line_width=1.0):
     ui_scale = ui.get_ui_scale()
@@ -48,6 +54,8 @@ def draw_line_loop(points, line_color=(0.0, 1.0, 0.5, 0.9), line_width=1.0):
     color = shader.uniform_from_name("color")
     shader.uniform_vector_float(color, pack("4f", r, g, b, a), 4)
     batch.draw(shader)
+
+    bgl.glDisable(bgl.GL_DEPTH_TEST)
 
 def draw_line(points, line_color=(0.0, 1.0, 0.5, 0.9), line_width=1.0):
     ui_scale = ui.get_ui_scale()
@@ -74,6 +82,8 @@ def draw_line(points, line_color=(0.0, 1.0, 0.5, 0.9), line_width=1.0):
     shader.uniform_vector_float(color, pack("4f", r, g, b, a), 4)
     batch.draw(shader)
 
+    bgl.glDisable(bgl.GL_DEPTH_TEST)
+
 
 def draw_lines(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
     indices = [(i, i+1) for i in range(0, len(points)-1)]
@@ -97,6 +107,8 @@ def draw_lines(points, line_color=(0.0, 1.0, 0.5, 0.4), line_width=1.0):
 
     shader.uniform_vector_float(color, pack("4f", r, g, b, a), 4)
     batch.draw(shader)
+
+    bgl.glDisable(bgl.GL_DEPTH_TEST)
 
 def batch_from_points(points, type_, shader):
     return batch_for_shader(shader, type_, {"pos": points})
