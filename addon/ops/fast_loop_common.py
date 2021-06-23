@@ -453,7 +453,7 @@ class FastLoopCommon():
 
 
         elif mode_enabled(Mode.REMOVE_LOOP) and self.remove_loop_draw_points:
-            utils.drawing.draw_lines(self.remove_loop_draw_points, color=(1.0, 0.0, 0.0, 0.9))
+            utils.drawing.draw_lines(self.remove_loop_draw_points, line_color=(1.0, 0.0, 0.0, 0.9))
 
         self.remove_loop_draw_points.clear()
 

@@ -14,6 +14,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
     tabs : bpy.props.EnumProperty(name="Tabs",
     items = [("GENERAL", "General", ""),
         ("KEYMAPS", "Keymaps", ""),
+         ("DISPLAY_SETTINGS", "Display Settings", ""),
         ("HELP", "Help", ""),],
     default="GENERAL")
 
@@ -21,6 +22,46 @@ class AddonPrefs(bpy.types.AddonPreferences):
     disable_pie: bpy.props.BoolProperty(name="Disable pie menu", default=False, description="If enabled, right click will cause the operator to be cancelled")
     use_spacebar: bpy.props.BoolProperty(name="Toggle Edge Slide with spacebar", default=False, description="Press the space bar to toggle edge slide instead of holding down alt")
     occlude_lines: bpy.props.BoolProperty(name="Don't draw lines behind geometry", default=False, description="Don't draw lines if they are behind geometry")
+    occlude_points: bpy.props.BoolProperty(name="Don't draw points behind geometry", default=False, description="Don't draw points if they are behind geometry")
+    draw_loop_vertices: bpy.props.BoolProperty(name="Draw vertices of the loop preview", default=False, description="Draw the vertices of the loop preview")
+
+    line_width : bpy.props.IntProperty(
+        name="Line Width", 
+        description="Loop preview line width",
+        default=1, 
+        min=1, 
+        max=10,
+        subtype='PIXEL'
+    )
+
+    loop_color : bpy.props.FloatVectorProperty(
+        name="Loop Color",
+        description="Loop preview color",
+        default=(0.0, 1.0, 0.5, 0.9),
+        min=0.0,
+        max=1.0,
+        size=4,
+        subtype='COLOR'
+    )
+
+    vertex_size : bpy.props.IntProperty(
+        name="Point Size", 
+        description="Loop preview point size",
+        default=5,
+        min=1, 
+        max=10,
+        subtype='PIXEL'
+    )
+
+    vertex_color : bpy.props.FloatVectorProperty(
+        name="Point Color",
+        description="Loop preview point color",
+        default=(0.789, 1.0, 0.0, 1.0),
+        min=0.0,
+        max=1.0,
+        size=4,
+        subtype='COLOR'
+    )
 
     interpolation_type: bpy.props.EnumProperty(
         name='Interpolation Type',
@@ -73,7 +114,8 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
         elif self.tabs == "KEYMAPS":
             self.draw_keymaps(context, box)
-
+        elif self.tabs == "DISPLAY_SETTINGS":
+            self.draw_display_settings(context, box)
         elif self.tabs == "HELP":
             self.draw_help(context, box)
 
@@ -81,9 +123,24 @@ class AddonPrefs(bpy.types.AddonPreferences):
         layout.prop(self, "use_rcs")
         layout.prop(self, "disable_pie")  
         layout.prop(self, "use_spacebar")  
-        layout.prop(self, "occlude_lines")  
 
         layout.operator("ui.reset_operator", text="Click this if an error occured while a fast Loop operator was running, and now it wont start.")
+
+    def draw_display_settings(self, context, layout):
+        layout.label(text="Draw Loop")
+        box = layout.box()
+        box.label(text="Warning: The setting below can cause parts of the line to disappear when enabled.", icon='ERROR')
+        box.prop(self, "occlude_lines") 
+
+        box.prop(self, "line_width") 
+        box.prop(self, "loop_color") 
+
+        layout.label(text="Draw Loop Points")
+        box = layout.box()
+        box.prop(self, "draw_loop_vertices")
+        box.prop(self, "occlude_points")
+        box.prop(self, "vertex_size") 
+        box.prop(self, "vertex_color") 
     
     def draw_keymaps(self, context, layout):
 
