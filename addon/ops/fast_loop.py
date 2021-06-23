@@ -390,14 +390,15 @@ class FastLoopOperator(FastLoopCommon):
             handled = True
 
         if event.type == btn('RIGHTMOUSE') and event.value == 'PRESS':
-            #if not utils.common.prefs().disable_pie:
-            if utils.ui.inside_view_3d((event.mouse_x, event.mouse_y)):
-                # Preemptively lock the points to prevent them from changing locations after the lock_points property is set to True.
-                # This is okay to do because they will be unlocked in update_snap_context() if the property is set to False.
-                self.snap_context.lock_snap_points
-                bpy.ops.wm.call_menu_pie(name="FL_MT_FastLoop_Pie")
-            # else:
-            #     set_option('cancel', True)
+            if not utils.common.prefs().disable_pie:
+                if utils.ui.inside_view_3d((event.mouse_x, event.mouse_y)):
+                    # Preemptively lock the points to prevent them from changing locations after the lock_points property is set to True.
+                    # This is okay to do because they will be unlocked in update_snap_context() if the property is set to False.
+                    self.snap_context.lock_snap_points
+                    bpy.ops.wm.call_menu_pie(name="FL_MT_FastLoop_Pie")
+            else:
+                set_option('cancel', True)
+                
             handled = True
 
         if event.type == 'MOUSEMOVE':

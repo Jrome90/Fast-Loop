@@ -18,7 +18,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
     default="GENERAL")
 
     use_rcs: bpy.props.BoolProperty(name="Swap left and right mouse buttons (Enable if you use right click select)", default=False, description="")
-    # disable_pie: bpy.props.BoolProperty(name="Disable pie menu", default=False, description="If enabled, right click will cause the operator to be cancelled")
+    disable_pie: bpy.props.BoolProperty(name="Disable pie menu", default=False, description="If enabled, right click will cause the operator to be cancelled")
     use_spacebar: bpy.props.BoolProperty(name="Toggle Edge Slide with spacebar", default=False, description="Press the space bar to toggle edge slide instead of holding down alt")
     occlude_lines: bpy.props.BoolProperty(name="Don't draw lines behind geometry", default=False, description="Don't draw lines if they are behind geometry")
 
@@ -79,7 +79,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
     def draw_general(self, context, layout):
         layout.prop(self, "use_rcs")
-        # layout.prop(self, "disable_pie")  
+        layout.prop(self, "disable_pie")  
         layout.prop(self, "use_spacebar")  
         layout.prop(self, "occlude_lines")  
 
