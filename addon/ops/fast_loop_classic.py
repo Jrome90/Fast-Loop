@@ -37,7 +37,8 @@ class FastLoopClassicOperator(FastLoopCommon):
             shortcuts= [
                         {"Insert Loop": ['MOUSE_LMB']},
                         {"Even": ['EVENT_E']},
-                        {"Flipped": ['EVENT_R']},
+                        {"Flipped": ['EVENT_F']},
+                         {"Cancel/Exit": ['MOUSE_RMB']},
                     ]
 
             header = utils.ops.generate_status_layout(shortcuts, header.layout)       
@@ -88,12 +89,12 @@ class FastLoopClassicOperator(FastLoopCommon):
                 self.current_edge = None
                 
         handled = False
-        if event.type in {'E', 'R'} and not (event.ctrl or event.alt):
+        if event.type in {'E', 'F'} and not (event.ctrl or event.alt):
 
             if event.type == 'E' and event.value == 'PRESS':
                 self.use_even = not self.use_even
 
-            elif event.type == 'R' and event.value == 'PRESS':
+            elif event.type == 'F' and event.value == 'PRESS':
                 self.flipped = not self.flipped
             handled = True
 
