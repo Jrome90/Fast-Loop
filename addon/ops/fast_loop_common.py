@@ -72,16 +72,9 @@ def set_prop(prop, value):
 
 
 
-class FastLoopCommon(bpy.types.Operator):
+class FastLoopCommon():
     '''Methods, attributes, and properties that Fast Loop and Fast Loop Classic share.
     '''
-
-    invoked_by_tool: bpy.props.BoolProperty(
-        name='tool invoked',
-        description='Do not change. This is meant to be hidden',
-        default=False,
-        options={'HIDDEN', 'SKIP_SAVE'}
-    )
 
     is_running = False
     @property

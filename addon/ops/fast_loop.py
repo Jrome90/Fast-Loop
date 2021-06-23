@@ -26,10 +26,17 @@ class EdgeData():
         self.first_vert = loop.vert
 
 
-class FastLoopOperator(FastLoopCommon):
+class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     bl_idname = 'fl.fast_loop'
     bl_label = 'fast_loop operator'
     bl_options = {'REGISTER'}
+
+    invoked_by_tool: bpy.props.BoolProperty(
+    name='tool invoked',
+    description='Do not change. This is meant to be hidden',
+    default=False,
+    options={'HIDDEN', 'SKIP_SAVE'}
+    )
 
     is_scaling = False
     is_selecting = False
@@ -398,7 +405,7 @@ class FastLoopOperator(FastLoopCommon):
                     bpy.ops.wm.call_menu_pie(name="FL_MT_FastLoop_Pie")
             else:
                 set_option('cancel', True)
-                
+
             handled = True
 
         if event.type == 'MOUSEMOVE':
