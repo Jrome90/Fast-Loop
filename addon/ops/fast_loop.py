@@ -1,5 +1,3 @@
-from math import isclose
-
 import bpy
 from bmesh.types import *
 
@@ -10,8 +8,12 @@ from . fast_loop_common import (FastLoopCommon, EdgeData, Mode, get_active_mode,
 
 from .. snapping.snapping import SnapContext
 
-from . fast_loop_algorithms import ComputeEdgePostitonsMultiAlgorithm, ComputeEdgePostitonsSingleAlgorithm, ComputeEdgePostitonsOverrideAlgorithm
+from . fast_loop_algorithms import (ComputeEdgePostitonsMultiAlgorithm, 
+                                    ComputeEdgePostitonsSingleAlgorithm, 
+                                    ComputeEdgePostitonsOverrideAlgorithm)
 
+from .. keymaps.event_handler import Event_Handler
+from .. keymaps.modal_keymapping import ModalOperatorKeymapCache as km_cache
 
 class EdgeData():
     """Stores the points and starting vert for an edge.
@@ -41,11 +43,16 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     is_scaling = False
     is_selecting = False
     edge_pos_algorithm = None
+    freeze_edge = False
+    frozen_edge = None
+    frozen_edge_index = None
 
     # Needed for tri fan loops
     current_face_index = None
 
     segments = 2
+
+    event_handler = None
 
     prev_mode = Mode.NONE
     @property
@@ -191,21 +198,12 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     def set_status(self, context):
 
         def status(header, context):
-            shortcuts= [
-                        {"Insert Loop": ['MOUSE_LMB']},
-                        {"Change Loop Number 1-9 | +-": []},
-                        {"Even": ['EVENT_E']},
-                        {"Flipped": ['EVENT_F']},
-                        {"MLO": ['EVENT_O']},
-                        {"Mirrored": ['EVENT_M']},
-                        {"Midpoint": ['EVENT_C']},
-                        {"Select New": ['EVENT_Q']},
-                        {"Snap Points": ['EVENT_S']},
-                        {"Lock Points": ['EVENT_X']},
-                        {"Pie Menu": ['MOUSE_RMB']},
-                    ]
-
-            header = utils.ops.generate_status_layout(shortcuts, header.layout)       
+    
+            extra_mapppings = {"Insert loop(s)": utils.ui.get_mouse_select_text(), 
+                                "Pie menu" if not utils.common.prefs().disable_pie else "Exit": utils.ui.get_mouse_other_button_text(),
+                                "Change loop number": "1-9 | +-",}
+            keymap = km_cache.get_keymap(self.bl_idname)
+            header = utils.ops.generate_status_layout_text_only(keymap, header.layout, extra_mapppings)#utils.ops.generate_status_layout(shortcuts, header.layout)       
             utils.ui.statistics(header, context)
 
         context.workspace.status_text_set(status)
@@ -236,6 +234,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
 
     def invoke(self, context, event):
+        self.event_handler = Event_Handler(km_cache.get_keymap(self.bl_idname))
         return super().invoke(context, event)
 
     def get_edge_pos_algorithm(self):
@@ -256,7 +255,8 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             if value == "EDGE_SLIDE":
                 if self.from_ui:
                     context_override = utils.ops.get_context_overrides(self.active_object)
-                    bpy.ops.fl.edge_slide(context_override, 'INVOKE_DEFAULT')
+                    bpy.ops.fl.edge_slide(context_override, 'INVOKE_DEFAULT', invoked_by_fla=True)
+                    
                     self.from_ui = True
 
             self.from_ui = True
@@ -272,6 +272,35 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             return self.current_ring[1] is not None
 
         return True
+
+    
+    def update(self, element_index, nearest_co):
+        bm: BMesh = self.ensure_bmesh()
+        bm.edges.ensure_lookup_table()
+        edge = bm.edges[element_index]
+
+        if edge.is_valid:
+            if not self.freeze_edge or (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
+                self.current_edge = edge
+                self.current_edge_index = edge.index
+
+
+                if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
+                    if self.update_current_ring():
+                        self.update_loops(nearest_co)
+                        self.update_positions_along_edges()
+
+                elif mode_enabled(Mode.REMOVE_LOOP):
+                    self.remove_loop_draw_points = self.compute_remove_loop_draw_points()
+
+            else:
+                self.current_edge = self.frozen_edge
+                self.current_edge_index = self.frozen_edge_index
+
+                if element_index == self.frozen_edge_index:
+                    if self.update_current_ring():
+                        self.update_loops(nearest_co)
+                        self.update_positions_along_edges()
 
 
     def modal(self, context, event):
@@ -317,15 +346,16 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         
         handled = False
 
-        if event.type in {'M', 'E', 'F', 'S', 'X', 'W', 'C', 'Q', 'SLASH', 'O'} and not (event.ctrl or event.alt):
-
-            if event.type == 'M' and event.value == 'PRESS':
+        modal_event = self.event_handler.handle_event(event)
+        if modal_event in km_cache.get_keymap(self.bl_idname).get_valid_keymap_actions():
+          
+            if modal_event == "mirrored":
                 self.mirrored = not self.mirrored
 
-            elif event.type == 'E' and event.value == 'PRESS':
+            elif modal_event == "even":
                 self.use_even = not self.use_even
 
-            elif event.type == 'F' and event.value == 'PRESS':
+            elif modal_event == "flip":
                 self.flipped = not self.flipped
                 if self.use_snap_points and  self.snap_divisions == 1:
                     if self.flipped :
@@ -333,28 +363,34 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     else:
                         self.snap_factor = 100 - self.snap_factor
 
-            elif event.type == 'S' and event.value == 'PRESS':
+            elif modal_event == "snap_points":
                 self.use_snap_points = not self.use_snap_points
 
-            elif event.type == 'X' and event.value == 'PRESS':
+            elif modal_event == "lock_snap_points":
                 self.lock_snap_points = not self.lock_snap_points
 
-            elif event.type == 'W' and event.value == 'PRESS':
+            elif modal_event == "scale":
                 if not self.is_scaling:
                     self.start_mouse_pos_x = event.mouse_x
                 self.is_scaling = not self.is_scaling
 
-            elif event.type == 'C' and event.value == 'PRESS':
+            elif modal_event == "midpoint":
                 self.insert_at_midpoint = not self.insert_at_midpoint
 
-            elif event.type == 'Q' and event.value == 'PRESS':
+            elif modal_event == "select_new_loops":
                 self.select_new_edges = not self.select_new_edges
             
-            elif event.type == 'SLASH' and event.value == 'PRESS':
+            elif modal_event == "perpendicular":
                 self.perpendicular = not self.perpendicular
 
-            elif event.type == 'O' and event.value == 'PRESS':
+            elif modal_event == "multi_loop_offset":
                 self.use_multi_loop_offset = not self.use_multi_loop_offset
+            
+            elif modal_event == "freeze_edge":
+                self.freeze_edge = not self.freeze_edge
+                if self.freeze_edge:
+                    self.frozen_edge = self.current_edge
+                    self.frozen_edge_index = self.current_edge_index
 
             handled = True
 
@@ -410,7 +446,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
         if event.type == 'MOUSEMOVE':
 
-            if self.is_scaling and not event.alt and mode_enabled(Mode.MULTI_LOOP) and not mode_enabled(Mode.REMOVE_LOOP):
+           if self.is_scaling and not event.alt and mode_enabled(Mode.MULTI_LOOP) and not mode_enabled(Mode.REMOVE_LOOP):
                 utils.ops.cursor_warp(event)
                 delta_x = event.mouse_x - event.mouse_prev_x
                 delta_x *= 0.001 if event.shift else 0.01
@@ -433,13 +469,32 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         else:
             return {'PASS_THROUGH'}
 
-    def edge_slide_finished(self):
-        if self.prev_mode is not None:
-            set_mode(self.prev_mode)
+    def edge_slide_finished(self, message=None, data=None):
+        
+        if message is not None and message == "switch_modes":
+            event = data
+            num_lookup = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5, 'SIX': 6, 'SEVEN': 7, 'EIGHT': 8, 'NINE': 9}
+            n = num_lookup[event.type]
+            if n == 1:
+                self.from_ui = False
+                set_mode(Mode.SINGLE)
+                self.prev_mode = Mode.SINGLE
+            else:
+                self.from_ui = False
+                set_mode(Mode.MULTI_LOOP)
+                self.prev_mode = Mode.MULTI_LOOP
+
+            self.segments = n
+            self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+
         else:
-            set_mode(Mode.SINGLE)
-       
-        bpy.ops.ed.undo_push()
+            if self.prev_mode is not None:
+                set_mode(self.prev_mode)
+            else:
+                set_mode(Mode.SINGLE)
+        
+            bpy.ops.ed.undo_push()
+
 
     def modal_select_edge_loop_released(self):
         if not mode_enabled(Mode.REMOVE_LOOP):

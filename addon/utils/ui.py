@@ -2,7 +2,6 @@ import bpy
 from . import common
 from .. import ui
 
-
 def update_panel_category(self, context):
     category = self.panel_category
     region_type = 'UI' if category else 'HEADER'
@@ -49,6 +48,18 @@ def add_shortcut_info(keymap, text_box, icons_box):
             icon_row.label(icon=icon)
 
         icon_row.scale_x = len(icons) * 0.15
+
+# Return an ordered list of fast loop's actions needed for ordered UI
+def get_ordered_fl_keymap_actions():
+    return  ["even", "flip", "mirrored", "midpoint", "perpendicular",  "multi_loop_offset", "select_new_loops", "scale", "snap_points", "lock_snap_points", "freeze_edge"]
+
+def get_mouse_select_text():
+    prefs = common.prefs()
+    return "LMB" if not prefs.use_rcs else "RMB"
+
+def get_mouse_other_button_text():
+    prefs = common.prefs()
+    return "RMB" if not prefs.use_rcs else "LMB"
 
 def get_ui_scale():
     return bpy.context.preferences.system.ui_scale

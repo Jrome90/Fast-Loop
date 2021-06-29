@@ -69,6 +69,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
 
     def invoke(self, context, event):
         set_mode(Mode.SINGLE)
+        self.is_classic = True
         return  super().invoke(context, event)
     
 
@@ -125,7 +126,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
             return {'PASS_THROUGH'}
 
 
-    def edge_slide_finished(self):    
+    def edge_slide_finished(self, message=None, data=None):    
         set_mode(Mode.SINGLE)
         bpy.ops.ed.undo_push()
 

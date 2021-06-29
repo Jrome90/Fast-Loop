@@ -51,6 +51,13 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
         options={'HIDDEN', 'SKIP_SAVE'}
     )  
 
+    invoked_by_fla: bpy.props.BoolProperty(
+        name='Invoked by Fast Loop Advanced',
+        description='Do not change. This is meant to be hidden',
+        default=False,
+        options={'HIDDEN', 'SKIP_SAVE'}
+    )  
+
     mode = Mode.EDGE_SLIDE
     is_sliding = False
     slide_value = 0.0
@@ -139,6 +146,24 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_3d, 'WINDOW')
 
         self.notify_listeners()
+        return {'FINISHED'}
+
+    
+    def switch_modes(self, context, event):
+        super().finished(context)
+        self.clear_draw()
+        bpy.context.window.cursor_modal_restore()
+        context.workspace.status_text_set(None)
+
+        context.area.tag_redraw()
+
+        if getattr(self, 'draw_handler_2d', None):
+            self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_2d, 'WINDOW')
+
+        if getattr(self, 'draw_handler_3d', None):
+            self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_3d, 'WINDOW')
+
+        self.notify_listeners(message="switch_modes", data=event)
         return {'FINISHED'}
     
     def clear_draw(self):
@@ -259,6 +284,11 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
                     bpy.ops.ed.undo_push()
 
             handled = True
+
+        if self.invoked_by_fla:
+            if event.type in {'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'} and event.value == 'PRESS':
+                return self.switch_modes(context, event)
+
         
         if super().modal(context, event):
             handled = True
@@ -394,7 +424,6 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
         
         slide_verts: Dict[int, EdgeVertexSlideData] = {}
 
-        self.ensure_bmesh()
         edges_l = list(utils.mesh.bmesh_edge_loop_walker(current_edge, selected_edges_only=True))
         edges = {edge.index for edge in edges_l}
         
@@ -430,6 +459,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
             _, vec_a = get_slide_edge(l_a, next_edge, v)
         
         else:
+            # pass
             l_tmp = utils.mesh.get_loop_other_edge_loop(l_a, v)
             vec_a = l_tmp.edge.other_vert(v).co - vert.co
 
@@ -455,19 +485,24 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
             sv.vert = v
             sv.vert_orig_co = v.co.copy()
 
-
             if l_a is not None or l_a_prev is not None:
                 l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_a if l_a is not None else l_a_prev, v)
-                sv.vert_side[0] = l_tmp.edge.other_vert(v)
-                sv.dir_side[0] = vec_a.normalized()
-                sv.edge_len[0] = vec_a.length
-            
+                if vec_a is not None:
+                    sv.vert_side[0] = l_tmp.edge.other_vert(v)
+                    sv.dir_side[0] = vec_a.normalized()
+                    sv.edge_len[0] = vec_a.length
+                else:
+                    print("vec_a is none")
+
             if l_b is not None or l_b_prev is not None:
                 l_tmp: BMLoop = utils.mesh.get_loop_other_edge_loop(l_b if l_b is not None else l_b_prev, v)
-                sv.vert_side[1] = l_tmp.edge.other_vert(v)
-                sv.dir_side[1] = vec_b.normalized()
-                sv.edge_len[1] = vec_b.length
-        
+                if vec_b is not None:
+                    sv.vert_side[1] = l_tmp.edge.other_vert(v)
+                    sv.dir_side[1] = vec_b.normalized()
+                    sv.edge_len[1] = vec_b.length
+                else:
+                    print("vec_b is none")
+            
             v = edge.other_vert(v)
             edge = get_next_edge(v, edge, edges)     
             if edge is None:
@@ -476,13 +511,13 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
                 sv.vert = v
                 sv.vert_orig_co = v.co.copy()
 
-                if l_a is not None:
+                if l_a is not None: #and (len(v.link_edges) > 3 or l_a.edge.is_boundary):
                     l_tmp = utils.mesh.get_loop_other_edge_loop(l_a, v)
                     sv.vert_side[0] = l_tmp.edge.other_vert(v)
                     sv.dir_side[0] =  sv.vert_side[0].co - v.co
                     sv.edge_len[0] = sv.dir_side[0].length
 
-                if l_b is not None:
+                if l_b is not None :
                     l_tmp = utils.mesh.get_loop_other_edge_loop(l_b, v)
                     sv.vert_side[1] = l_tmp.edge.other_vert(v)
                     sv.dir_side[1] =  sv.vert_side[1].co - v.co
@@ -494,6 +529,7 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
 
             if l_a is not None:
                 l_a, vec_a = get_slide_edge(l_a, edge, v)
+                # vec_a =None
     
             else:
                 vec_a = Vector()
@@ -533,6 +569,8 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
                 if other_vert is not None:
                     other_co_2d = utils.math.location_3d_to_2d(self.world_mat @ other_vert.co)
                     slide_vecs.append((other_co_2d - nearest_co_2d))
+                else:
+                    slide_vecs.append(None)
 
         return slide_vecs
 
@@ -544,14 +582,15 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
         o = self.ss_slide_directions[0]
         mouse_vec: Vector = (mouse_co - o).normalized()
         
-        dir_vecs = [vec for vec in self.ss_slide_directions[1:] if vec is not None]
+        dir_vecs = [vec for vec in self.ss_slide_directions[1:]]
         closest_vec = None
         tmp_vec = None
         k = 0
         max_cos_theta = float('-inf')
         min_dist_sq = float('inf')
         for i, vec in enumerate(dir_vecs):
-            
+            if vec is None:
+                continue
             cos_theta = mouse_vec.dot(vec.normalized())
             if cos_theta > max_cos_theta:
                 tmp_vec = vec
@@ -566,7 +605,6 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
                         min_dist_sq = dist_sq
                         closest_vec = vec
 
-        
         if closest_vec is not None:
             tmp_vec = o + tmp_vec
             if not self.nearest_vert.is_valid:
@@ -589,8 +627,13 @@ class EdgeSlideOperator(bpy.types.Operator, EdgeConstraint_Translation, Subject)
                     d = (cp - vert_orig_co).length
 
                     for data in self.slide_verts.values():
+                        if data is None:
+                            continue
+
                         vert = data.vert
                         o_co = data.vert_orig_co
+                        if data.dir_side[k] is None:
+                            continue
                         dir_vec_norm = data.dir_side[k] 
                         dir =  data.vert_side[k].co
                         vec_len = data.edge_len[k]

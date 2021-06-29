@@ -211,4 +211,30 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         subtype='PERCENTAGE',
         update=property_changed
     )
-    
+
+from .. keymaps.modal_keymapping import ModalKeymap
+class ModalKeymapDisplay(bpy.types.PropertyGroup):
+
+    even: bpy.props.StringProperty(name="even")
+    flip: bpy.props.StringProperty(name="flip")
+    midpoint: bpy.props.StringProperty(name="midpoint")
+    mirrored: bpy.props.StringProperty(name="mirrored")
+    perpendicular: bpy.props.StringProperty(name="perpendicular")
+    select_new_loops: bpy.props.StringProperty(name="select new loops")
+    multi_loop_offset: bpy.props.StringProperty(name="multi loop offset")
+    scale: bpy.props.StringProperty(name="scale")
+    snap_points: bpy.props.StringProperty(name="snap points")
+    lock_snap_points: bpy.props.StringProperty(name="lock snap points")
+    freeze_edge: bpy.props.StringProperty(name="freeze edge")
+
+
+    def init(self, keymap: ModalKeymap):
+        for attribute in self.__annotations__.keys():
+            for key, item in keymap.get_all_mappings():
+                if attribute == item:
+                    hotkey = key[0]
+                    setattr(self, attribute, hotkey)
+                    break
+                
+        
+        

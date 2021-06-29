@@ -2,6 +2,7 @@ import bpy
 
 from . import common
 from . import ui
+from .. import utils
 
 def cursor_warp(event: bpy.types.Event):
     '''
@@ -92,6 +93,28 @@ def generate_status_layout(shortcuts, layout):
     
     return layout
 
+
+from .. keymaps.modal_keymapping import ModalKeymap
+def generate_status_layout_text_only(keymap: ModalKeymap , layout, extra_mapppings=None):
+    def add_keymap_label(action, key):
+        row = layout.row()
+        row.alignment = 'LEFT'
+        text_box = row.column()
+        text_box.alignment = 'LEFT'
+        text_box.scale_x = 1
+        text_box.label(text=f"{action} ({key})")
+
+    if extra_mapppings is not None:
+        for action, mapping in extra_mapppings.items():
+            add_keymap_label(action, mapping)
+
+    for action in utils.ui.get_ordered_fl_keymap_actions():
+        mapping = keymap.get_mapping_from_action(action)
+        key = mapping[0].upper()
+        action = action.replace("_", " ").capitalize()
+        add_keymap_label(action, key)
+    
+    return layout
 
 def get_context_overrides(*objects):
 

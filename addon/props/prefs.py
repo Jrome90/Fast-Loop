@@ -3,10 +3,16 @@ import bpy
 from bpy.app.translations import contexts as i18n_contexts
 import rna_keymap_ui
 
+from .. keymaps.modal_keymapping import ModalOperatorKeymapCache as km_cache
 from .. import utils
 
 
 m_buttons = ['MOUSE_LMB', 'MOUSE_RMB']
+
+
+def keymap_changed(self, context, keymap_event):
+    print(f"Event: {keymap_event} value{self.mirrored_keymap}")
+    bpy.ops.ui.keymap_input_operator('INVOKE_DEFAULT')
 
 class AddonPrefs(bpy.types.AddonPreferences):
     bl_idname = utils.common.module()
@@ -101,7 +107,30 @@ class AddonPrefs(bpy.types.AddonPreferences):
         subtype='FACTOR' 
     )
 
+
+    # mirrored_keymap: bpy.props.StringProperty(
+        # name="m",
+        # items=[("M","M",'',1)],
+        #default="Test",
+        # update=lambda s, c: keymap_changed(s, c, "mirrored")
+    # )
+
+    # keymap_input: bpy.props.BoolProperty(
+    #     # name="m",
+    #     # items=[("M","M",'',1)],
+    #     #default="Test",
+    #     update=lambda s, c: keymap_changed(s, c, "mirrored")
+    # )
+
+    keymap_error: bpy.props.StringProperty(name="Keymap Error")
+
     def draw(self, context):
+        wm = context.window_manager
+        try:
+            wm.keymap_strings.init(km_cache.get_keymap("FL_OT_fast_loop"))
+            self.keymap_error = ""
+        except FileNotFoundError:
+            self.keymap_error = "HotkeyPrefs.JSON file not found"
 
         layout = self.layout
         row = layout.row()
@@ -143,8 +172,14 @@ class AddonPrefs(bpy.types.AddonPreferences):
         box.prop(self, "vertex_color") 
     
     def draw_keymaps(self, context, layout):
-
         wm = context.window_manager
+        modal_keymap_box = layout.box()
+        modal_keymap_box.label(text="Fast Loop:")
+        if self.keymap_error:
+            modal_keymap_box.label(text=self.keymap_error, icon='ERROR')
+        self.generate_modal_keymap_ui(context, modal_keymap_box)
+      
+        layout.operator("ui.save_keymap_operator", text="Save modal keymap preferences")
         kc = wm.keyconfigs.user
 
         layout.label(text="Operator:")
@@ -153,6 +188,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
         km = kc.keymaps.get(km_name)
         if km:
             self.draw_km(kc, km, layout)
+        
     
     def draw_help(self, context, layout):
         def add_shortcut_info(keymap, text_box, icons_box):
@@ -210,14 +246,14 @@ class AddonPrefs(bpy.types.AddonPreferences):
         add_shortcut_info({"Remove Loop": ['EVENT_CTRL', 'EVENT_SHIFT', 'MOUSE_LMB']}, text_box, icons_box)
         
         #add_shortcut_info({"Single": ['EVENT_S']}, text_box, icons_box)
-        add_shortcut_info({"Mirrored": ['EVENT_M']}, text_box, icons_box)
-        add_shortcut_info({"Midpoint": ['EVENT_C']}, text_box, icons_box)
-        add_shortcut_info({"Perpendicular: /": ['ERROR']}, text_box, icons_box)
-        add_shortcut_info({"Select New Edges": ['EVENT_Q']}, text_box, icons_box)
-        add_shortcut_info({"Multi Loop Offset": ['EVENT_O']}, text_box, icons_box)
-        add_shortcut_info({"Toggle Change Scale": ['EVENT_W']}, text_box, icons_box)
-        add_shortcut_info({"Snap Points": ['EVENT_S']}, text_box, icons_box)
-        add_shortcut_info({"Lock Snap Points": ['EVENT_X']}, text_box, icons_box)
+        # add_shortcut_info({"Mirrored": ['EVENT_M']}, text_box, icons_box)
+        # add_shortcut_info({"Midpoint": ['EVENT_C']}, text_box, icons_box)
+        # add_shortcut_info({"Perpendicular: /": ['ERROR']}, text_box, icons_box)
+        # add_shortcut_info({"Select New Edges": ['EVENT_Q']}, text_box, icons_box)
+        # add_shortcut_info({"Multi Loop Offset": ['EVENT_O']}, text_box, icons_box)
+        # add_shortcut_info({"Toggle Change Scale": ['EVENT_W']}, text_box, icons_box)
+        # add_shortcut_info({"Snap Points": ['EVENT_S']}, text_box, icons_box)
+        # add_shortcut_info({"Lock Snap Points": ['EVENT_X']}, text_box, icons_box)
         add_shortcut_info({"Pie Menu": ['MOUSE_RMB']}, text_box, icons_box)
 
         es=layout
@@ -264,5 +300,17 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
                 if kmi.idname == "fl.edge_slide":
                     rna_keymap_ui.draw_kmi(["ADDON", "USER", "DEFAULT"], kc, km, kmi, col, 0)
+
+
+    def generate_modal_keymap_ui(self, context, layout):
+
+        wm = context.window_manager
+        for action in utils.ui.get_ordered_fl_keymap_actions():
+            action_name = action.replace("_"," ")
+            row = layout.row()
+            row.label(text=f"Toggle {action_name} ")
+            op = row.operator("ui.keymap_input_operator", text=(f"{getattr(wm.keymap_strings, action)}").capitalize())
+            op.active_keymap = action
+            op.operator = "FL_OT_fast_loop"
 
 

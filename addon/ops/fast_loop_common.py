@@ -115,6 +115,7 @@ class FastLoopCommon():
     active_object = None
     bm: BMesh = None
     from_ui = True
+    is_classic = False
     dirty_mesh = False
     current_edge = None
     current_edge_index = None
@@ -238,7 +239,7 @@ class FastLoopCommon():
                     
 
 
-    def edge_slide_finished(self):
+    def edge_slide_finished(self, message=None, data=None):
         pass
     def modal_select_edge_loop_released(self):
         pass
@@ -254,6 +255,8 @@ class FastLoopCommon():
         if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'}:
             if self.current_edge is not None and event.type in {btn('LEFTMOUSE')} and event.value == 'PRESS':
                 if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)):
+
+                    self.freeze_edge = False
 
                     if (not event.shift and not self.set_flow_enabled()) or (event.shift and self.set_flow_enabled()):
                         self.create_geometry(context)
@@ -311,7 +314,11 @@ class FastLoopCommon():
             if event.type == 'SPACE' and event.value == 'PRESS' and not mode_enabled(Mode.EDGE_SLIDE):
                 self.from_ui = False
                 set_mode(Mode.EDGE_SLIDE)
-                bpy.ops.fl.edge_slide('INVOKE_DEFAULT', restricted=True)       
+                if not self.is_classic:
+                    bpy.ops.fl.edge_slide('INVOKE_DEFAULT', restricted=True, invoked_by_fla=True)       
+                else:
+                    bpy.ops.fl.edge_slide('INVOKE_DEFAULT', restricted=True)  
+
                 handled = True
             
         return handled
