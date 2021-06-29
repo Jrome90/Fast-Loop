@@ -107,21 +107,6 @@ class AddonPrefs(bpy.types.AddonPreferences):
         subtype='FACTOR' 
     )
 
-
-    # mirrored_keymap: bpy.props.StringProperty(
-        # name="m",
-        # items=[("M","M",'',1)],
-        #default="Test",
-        # update=lambda s, c: keymap_changed(s, c, "mirrored")
-    # )
-
-    # keymap_input: bpy.props.BoolProperty(
-    #     # name="m",
-    #     # items=[("M","M",'',1)],
-    #     #default="Test",
-    #     update=lambda s, c: keymap_changed(s, c, "mirrored")
-    # )
-
     keymap_error: bpy.props.StringProperty(name="Keymap Error")
 
     def draw(self, context):

@@ -8,12 +8,10 @@ class ModalKeymap():
     _events = set()
     def __init__(self, keymap):
         self._keymap = {v: k for k, v in keymap.items()}
-        #self._action_to_keymap = {k: v for k, v in keymap.items()}
         self._actions = {action for action in keymap.keys()}
 
 
     def update_mapping(self, action, event_type, event_value, ctrl=False, shift=False, alt=False):
-        #keymap_string = keymap_to_string(event_type, event_value, ctrl, shift, alt)
         keymap_item = (event_type, 'PRESS', ctrl, shift, alt)
 
         if action in self._keymap.values():
@@ -61,29 +59,6 @@ class ModalOperatorKeymapCache():
     @classmethod
     def get_all_keymaps(cls):
         return cls.keymaps.items()
-     
-
-# from dataclasses import dataclass
-# from typing import *
-# @dataclass(eq=True, unsafe_hash=True)      
-# class ModalKeymapItem():
-#     event_type: str
-#     event_value: str
-#     ctrl: bool
-#     shift: bool
-#     alt: bool
-
-#     def __init__(self, event_type, event_value, ctrl=False, shift=False, alt=False):
-#         self.event_type = event_type
-#         self.event_value= event_value
-#         self.ctrl = ctrl
-#         self.shift = shift
-#         self.alt = alt
-
-
-
-# def keymap_to_string(event_type, event_value, ctrl, shift, alt):
-#     return f"{event_type}_{event_value}_{str(ctrl)}_{str(shift)}_{str(alt)}"
 
 
 def load_keymap(operator_id):
