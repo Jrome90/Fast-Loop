@@ -26,8 +26,12 @@ class Event_Handler():
             changed = True
         elif event.ascii == '.' and event.value == 'PRESS':
             if self._numeric_value.find('.') == -1:
+                if len(self._numeric_value) == 0:
+                    self._numeric_value += "0"
+                    
                 self._numeric_value += event.ascii
                 changed = True
+            
         elif event.type == 'BACK_SPACE' and event.value == 'PRESS':
             if len(self._numeric_value) >= 2:
                 self._numeric_value = self._numeric_value[:-1]
