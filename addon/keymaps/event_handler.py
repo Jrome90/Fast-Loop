@@ -23,7 +23,6 @@ class Event_Handler():
         changed = False
         if str.isnumeric(event.ascii):
             self._numeric_value += event.ascii
-            print(self._numeric_value)
             changed = True
         elif event.ascii == '.' and event.value == 'PRESS':
             if self._numeric_value.find('.') == -1:
