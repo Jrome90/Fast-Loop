@@ -301,6 +301,13 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     if self.update_current_ring():
                         self.update_loops(nearest_co)
                         self.update_positions_along_edges()
+    
+    def on_numeric_input_changed(self, value: str):
+        if self.is_scaling:
+            self.scale = float(value) * 0.01
+
+        self.update_loops()
+        self.update_positions_along_edges()
 
 
     def modal(self, context, event):
@@ -372,7 +379,12 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             elif modal_event == "scale":
                 if not self.is_scaling:
                     self.start_mouse_pos_x = event.mouse_x
-                self.is_scaling = not self.is_scaling
+                    self.event_handler.numeric_input_begin(event, self.on_numeric_input_changed)
+                    self.is_scaling = True
+                else:
+                    self.is_scaling = False
+                    self.event_handler.numeric_input_end()
+
 
             elif modal_event == "midpoint":
                 self.insert_at_midpoint = not self.insert_at_midpoint
@@ -393,6 +405,12 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     self.frozen_edge_index = self.current_edge_index
 
             handled = True
+
+        # Use this to consume events for now
+        elif modal_event == "numeric_input":
+            self.set_header(context)
+            context.area.tag_redraw()
+            return {'RUNNING_MODAL'}
 
         elif event.type in {'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'} and event.value == 'PRESS':
             num_lookup = {'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5, 'SIX': 6, 'SEVEN': 7, 'EIGHT': 8, 'NINE': 9}
