@@ -24,6 +24,7 @@ In addition to the two modes to insert loops, there are sub modes that can be us
 <img src="https://github.com/Jrome90/Fast-Loop-Images/blob/main/Demo_Mirrored.gif" width="256" height="256">  
 
 Toggle the abilty to change the scale(spacing) of the loops when using multi loop mode with the W key.
+As of 0.0.9c numerical input can be used after pressing the W key. 
 
 
 #### Snapping ####
