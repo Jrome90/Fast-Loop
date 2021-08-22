@@ -18,18 +18,23 @@ class AddonProps(bpy.types.PropertyGroup):
 
 
 class Loop_Cut(bpy.types.PropertyGroup):
+    def on_loopcut_value_changed(self, context):
+        utils.ops.options().on_loopcut_value_changed()
+
     percent: bpy.props.FloatProperty(name='Percent', 
     default=0.0, 
     min=0.0, 
     max=100.0, 
-    subtype='PERCENTAGE')
+    subtype='PERCENTAGE',
+    update=on_loopcut_value_changed)
 
     distance: bpy.props.FloatProperty(name='Distance', 
     default=1.0, 
     min=0.0,
     subtype='DISTANCE',
     unit='LENGTH',
-    precision=4)
+    precision=4,
+    update=on_loopcut_value_changed)
 
     @staticmethod
     def get_method():
@@ -211,6 +216,9 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         subtype='PERCENTAGE',
         update=property_changed
     )
+
+    def on_loopcut_value_changed(self):       
+        self.notify_listeners("loopcut_value_changed", None)
 
 from .. keymaps.modal_keymapping import ModalKeymap
 class ModalKeymapDisplay(bpy.types.PropertyGroup):

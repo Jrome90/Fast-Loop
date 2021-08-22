@@ -260,6 +260,8 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     self.from_ui = True
 
             self.from_ui = True
+        elif event == "loopcut_value_changed":
+            self.update(self.current_edge_index, None)
 
         self.edge_pos_algorithm = self.get_edge_pos_algorithm()
 
@@ -325,13 +327,14 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         if mode_enabled(Mode.EDGE_SLIDE):
             return {'PASS_THROUGH'}
         
-        
         if self.dirty_mesh and not mode_enabled(Mode.REMOVE_LOOP):
             bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.mode_set(mode='EDIT')
             self.dirty_mesh = False
 
             return {'RUNNING_MODAL'}
+
+        mouse_coords = (event.mouse_region_x, event.mouse_region_y)
 
         if self.snap_context is None:
             self.snap_context: SnapContext = SnapContext.get(context, context.evaluated_depsgraph_get(), context.space_data, context.region)
@@ -340,11 +343,12 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         if self.snap_context is not None and (not self.is_scaling and not mode_enabled(Mode.EDGE_SLIDE) or mode_enabled(Mode.REMOVE_LOOP)):  
             self.update_snap_context()
 
-            mouse_coords = (event.mouse_region_x, event.mouse_region_y)
             self.current_face_index, element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
 
             if element_index is not None:
-                self.update(element_index, nearest_co) 
+                self.update(element_index, nearest_co)
+            elif self.freeze_edge:
+                self.update(self.frozen_edge_index, None)
             else:
                 self.current_edge = None
 
@@ -449,6 +453,12 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         elif event.type in {'ESC'}:
             set_option('cancel', True)
             handled = True
+
+        inside_toolbar = utils.ui.inside_toolbar(mouse_coords)
+        inside_npanel = utils.ui.inside_npanel(mouse_coords)
+        inside_gizmo = utils.ui.inside_navigation_gizmo(mouse_coords)
+        if inside_toolbar or inside_npanel or inside_gizmo:
+            return {'PASS_THROUGH'}
 
         if event.type == btn('RIGHTMOUSE') and event.value == 'PRESS':
             if not utils.common.prefs().disable_pie:
