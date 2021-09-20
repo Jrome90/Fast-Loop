@@ -74,9 +74,10 @@ class DrawFastLoopUI():
             col.label(text="Loop Postitions")
             
             scene = bpy.context.scene
-            index = scene.Loop_Cut_Lookup_Index
-            lc_slot = scene.Loop_Cut_Slots.loop_cut_slots[index]
-            col.template_list("FL_UL_Percentages", "", lc_slot, "loop_cut_slot", bpy.context.scene, "Loop_Cut_Slots_Index")
+            if len(scene.Loop_Cut_Slots.loop_cut_slots) > 0:
+                index = scene.Loop_Cut_Lookup_Index
+                lc_slot = scene.Loop_Cut_Slots.loop_cut_slots[index]
+                col.template_list("FL_UL_Percentages", "", lc_slot, "loop_cut_slot", bpy.context.scene, "Loop_Cut_Slots_Index")
 
             box = layout.split()
 

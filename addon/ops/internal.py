@@ -88,12 +88,22 @@ class UI_OT_keymap_input_operator(bpy.types.Operator):
        
         keymap: ModalKeymap = km_cache.get_keymap(self.operator)
         key = event.unicode if event.unicode else event.type
-        if keymap.update_mapping(self.active_keymap, key, 'PRESS'):
-            setattr(wm.keymap_strings, self.active_keymap, key)
+        if keymap.update_mapping(self.active_keymap, key, 'PRESS', ctrl=event.ctrl, shift=event.shift, alt=event.alt):
+            key_with_mods = self.append_modifier_keys(key, event.ctrl, event.shift, event.alt)
+            setattr(wm.keymap_strings, self.active_keymap, key_with_mods)
         else:
             setattr(wm.keymap_strings, self.active_keymap, self.previous_shortcut)
         return {'FINISHED'}
-
+    
+    @staticmethod
+    def append_modifier_keys(key_string, ctrl, shift, alt):
+        if ctrl:
+            key_string += "+Ctrl"
+        if shift:
+            key_string += "+Shift"
+        if alt:
+            key_string += "+Alt"
+        return key_string
 
 class UI_OT_save_keymap_operator(bpy.types.Operator):
     bl_idname = 'ui.save_keymap_operator'

@@ -1,7 +1,7 @@
 import bpy
 from . import panels
 from . import pies
-from. import ui
+from . import ui
 
 classes = (
     panels.VIEW3D_PT_FastLoopSetFlowOptions,

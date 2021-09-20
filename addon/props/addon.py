@@ -234,15 +234,25 @@ class ModalKeymapDisplay(bpy.types.PropertyGroup):
     snap_points: bpy.props.StringProperty(name="snap points")
     lock_snap_points: bpy.props.StringProperty(name="lock snap points")
     freeze_edge: bpy.props.StringProperty(name="freeze edge")
-
+    increase_loop_count: bpy.props.StringProperty(name="increase loop count")
+    decrease_loop_count: bpy.props.StringProperty(name="decrease loop count")
 
     def init(self, keymap: ModalKeymap):
         for attribute in self.__annotations__.keys():
             for key, item in keymap.get_all_mappings():
                 if attribute == item:
-                    hotkey = key[0]
+                    hotkey = self.append_modifier_keys(key[0], key[2], key[3], key[4])
                     setattr(self, attribute, hotkey)
                     break
                 
+    @staticmethod
+    def append_modifier_keys(key_string, ctrl, shift, alt):
+        if ctrl:
+            key_string += "+Ctrl"
+        if shift:
+            key_string += "+Shift"
+        if alt:
+            key_string += "+Alt"
+        return key_string
         
         

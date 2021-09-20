@@ -408,6 +408,36 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                     self.frozen_edge = self.current_edge
                     self.frozen_edge_index = self.current_edge_index
 
+            elif modal_event == "increase_loop_count":
+                
+                self.segments += 1
+
+                if self.segments == 1:
+                    self.from_ui = False
+                    set_mode(Mode.SINGLE)
+                    self.prev_mode = Mode.SINGLE
+                else:
+                    self.from_ui = False
+                    set_mode(Mode.MULTI_LOOP)
+                    self.prev_mode = Mode.MULTI_LOOP
+
+                self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+            
+            elif modal_event == "decrease_loop_count":
+                
+                self.segments -= 1
+
+                if self.segments == 1:
+                    self.from_ui = False
+                    set_mode(Mode.SINGLE)
+                    self.prev_mode = Mode.SINGLE
+                else:
+                    self.from_ui = False
+                    set_mode(Mode.MULTI_LOOP)
+                    self.prev_mode = Mode.MULTI_LOOP
+
+                self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+
             handled = True
 
         # Use this to consume events for now
@@ -432,23 +462,23 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.edge_pos_algorithm = self.get_edge_pos_algorithm()
             handled = True
         
-        elif event.type in {'EQUAL', 'NUMPAD_PLUS', 'MINUS', 'NUMPAD_MINUS'} and event.value == 'PRESS':
-            if event.type in {'EQUAL', 'NUMPAD_PLUS'}:
-                self.segments += 1
-            else:
-                self.segments -= 1
+        # elif event.type in {'EQUAL', 'NUMPAD_PLUS', 'MINUS', 'NUMPAD_MINUS'} and event.value == 'PRESS':
+        #     if event.type in {'EQUAL', 'NUMPAD_PLUS'}:
+        #         self.segments += 1
+        #     else:
+        #         self.segments -= 1
 
-            if self.segments == 1:
-                self.from_ui = False
-                set_mode(Mode.SINGLE)
-                self.prev_mode = Mode.SINGLE
-            else:
-                self.from_ui = False
-                set_mode(Mode.MULTI_LOOP)
-                self.prev_mode = Mode.MULTI_LOOP
+        #     if self.segments == 1:
+        #         self.from_ui = False
+        #         set_mode(Mode.SINGLE)
+        #         self.prev_mode = Mode.SINGLE
+        #     else:
+        #         self.from_ui = False
+        #         set_mode(Mode.MULTI_LOOP)
+        #         self.prev_mode = Mode.MULTI_LOOP
 
-            self.edge_pos_algorithm = self.get_edge_pos_algorithm()
-            handled = True
+        #     self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+        #     handled = True
 
         elif event.type in {'ESC'}:
             set_option('cancel', True)
@@ -618,14 +648,14 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             if self.loop_position_override and self.segments < 10:
                 points = [data.points if self.flipped else list(reversed(data.points)) for data in self.edge_data]
             else:
-                if get_active_mode() == Mode.SINGLE and self.mirrored:
+                if mode_enabled(Mode.SINGLE) and self.mirrored:
                     if not self.flipped:
                         points = [data.points if self.offset < 0.5 else list(reversed(data.points)) for data in self.edge_data]
 
                     else:
                         points = [data.points if self.offset > 0.5 else list(reversed(data.points)) for data in self.edge_data]
                 
-                elif get_active_mode() == Mode.MULTI_LOOP and self.mirrored:
+                elif mode_enabled(Mode.MULTI_LOOP) and self.mirrored:
                     points = [data.points if not self.flipped else list(reversed(data.points)) for data in self.edge_data]
 
                 else:

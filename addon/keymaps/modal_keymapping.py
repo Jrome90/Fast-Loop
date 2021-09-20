@@ -97,7 +97,9 @@ def save_keymap(operator_id, modal_keymap: ModalKeymap=None):
             "scale": ('w', 'PRESS', False, False, False),
             "snap_points": ('s', 'PRESS', False, False, False),
             "lock_snap_points": ('x', 'PRESS', False, False, False),
-            "freeze_edge": (',', 'PRESS', False, False, False)
+            "freeze_edge": (',', 'PRESS', False, False, False),
+            "increase_loop_count": ('+', 'PRESS', False, False, False),
+            "decrease_loop_count": ('-', 'PRESS', False, False, False),
             }
         }
 
