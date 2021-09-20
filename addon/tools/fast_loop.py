@@ -7,8 +7,9 @@ from .. ui.ui import DrawFastLoopUI
 class FL_ToolBase(bpy.types.WorkSpaceTool):
     bl_space_type='VIEW_3D'
     bl_context_mode='EDIT_MESH'
-    bl_widget  = "FL_GGT_Preview"
-    
+
+    def get_operator():
+        raise NotImplementedError
 
     @classmethod
     def draw_settings( cls ,context, layout, tool):
@@ -37,7 +38,7 @@ class FL_FastLoop(FL_ToolBase, DrawFastLoopUI):
     bl_label = "Fast Loop"
     bl_description = ( "Add loop cuts or modify existing ones" )
     bl_icon = os.path.join(os.path.join(os.path.dirname(__file__), "icons") , "fl.fast_loop")
-
+    bl_widget  = "FL_GGT_FastLoop"
     
     @classmethod
     def draw_settings_toolheader(cls, context, layout, tool):
@@ -56,3 +57,6 @@ class FL_FastLoop(FL_ToolBase, DrawFastLoopUI):
     def draw_settings_ui(cls, context, layout):
         cls.draw_fastloop_ui(context, layout)
 
+    
+    def get_operator():
+        return 'fl.fast_loop'

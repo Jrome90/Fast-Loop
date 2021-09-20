@@ -1,8 +1,12 @@
 import bpy
 from . import gizmo_preview
 
-classes = [gizmo_preview.PreviewWidget,
-            gizmo_preview.PreviewWidgetGroup,
+classes = [
+    gizmo_preview.FL_GGT_GizmoGroupBase,
+    gizmo_preview.FL_GGT_FastLoop,
+    gizmo_preview.FL_GGT_FastLoopClassic,
+    #gizmo_preview.PreviewWidget,
+            #gizmo_preview.PreviewWidgetGroup,
         ]
 
 def register():

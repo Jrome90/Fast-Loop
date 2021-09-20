@@ -15,11 +15,11 @@
 bl_info = {
     'name': 'Fast Loop',
     'author': 'Jrome',
-    'description': 'Fast Loop',
+    'description': 'Fast Loop \
+                    Should work with all blender versions from 2.91 onwards',
     'blender': (2, 91, 0),
-    'version': (0, 0, 9),
+    'version': (0, 1, 0),
     'category': 'Mesh',
-    #'location': 'Mesh > Edge > Connect Edges',
 }
 
 

@@ -1,58 +1,49 @@
+
+from functools import partial
+
 import bpy
 from  bmesh.types import *
-from ... snapping.snapping import SnapContext
-                                  
+from ... import utils
+from ... tools.fast_loop import FL_FastLoop
+from ... tools.fast_loop_classic import FL_FastLoopClassic       
 
-class PreviewWidget( bpy.types.Gizmo):
-    bl_idname = "FL_GT_Preview"
+# def get_context_overrides(*objects):
 
-    # def __init__(self):
-        
-        # self.snap_context = None
-        # self.is_setup = False
-        # self.current_element = None
-        # self.current_position = None
+#     def get_base_context():
+#         window = bpy.context.window_manager.windows[0]
+#         area = None
+#         for area in window.screen.areas:
+#             if area.type == 'VIEW_3D':
+#                 area = area
+#                 break
+#         return {'window': window, 'screen': window.screen, 'area' : area, "workspace" : window.workspace}
 
-    def draw(self, context):
-        pass
+#     context = get_base_context()
+#     context['object'] = objects[0]
+#     context['active_object'] = objects[0]
+#     context['selected_objects'] = objects
+#     context['selected_editable_objects'] = objects
+#     return context
 
-    def test_select(self, context, mouse_co):
-        # if not self.is_setup:
-        #   return -1
+def execute_operator(operator):
+    active_obj = bpy.context.scene.view_layers[0].objects.active
+    context_override =  utils.ops.get_context_overrides(active_obj)
 
-        # else:
-        #     active_object = context.active_object
-        #     _, element_index, nearest_co = self.snap_context.do_snap(mouse_co, active_object)
+    if operator == 'fl.fast_loop':
+         bpy.ops.fl.fast_loop(context_override, 'INVOKE_DEFAULT', invoked_by_tool=True)
 
-        #     if element_index is not None:
-        #         bm: BMesh = self.snap_context.snap_objects[active_object.name].bm
-        #         bm.edges.ensure_lookup_table()
-        #         edge = bm.edges[element_index]
-        #         self.current_element = edge
-        #         self.current_position = nearest_co
-
-        #     context.area.tag_redraw()
-        return -1
-            
-
-    def init_widget(self, context):
-        active_object = context.active_object
-        self.snap_context = SnapContext.get(context, context.evaluated_depsgraph_get(), context.space_data, context.region)
-        self.snap_context.add_object(active_object)
-        self.is_setup = True
-
-    def removed_widget(self):
-        pass
-        #SnapContext.remove()
-
-    def setup(self):
-        self.is_setup = False
+    elif operator == 'fl.fast_loop_classic':
+         bpy.ops.fl.fast_loop_classic(context_override, 'INVOKE_DEFAULT', invoked_by_tool=True)
 
 
-class PreviewWidgetGroupBase(bpy.types.GizmoGroup):
+class FL_GGT_GizmoGroupBase(bpy.types.GizmoGroup):
+    bl_label = "(internal)"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'WINDOW'
     bl_options = {'3D'}
+
+    def get_tool(self):
+        raise NotImplementedError
 
     @classmethod
     def poll(cls, context):
@@ -67,31 +58,34 @@ class PreviewWidgetGroupBase(bpy.types.GizmoGroup):
             
         return True
 
-
-    def setup_(self, context, gizmo_name):
-        self.widget = self.gizmos.new(gizmo_name)
-        self.widget.init_widget(context)
-
-    def __del__(self):
-        if hasattr(self, "widget"):
-            object.__getattribute__(self.widget, 'removed_widget')()
-
-
-class PreviewWidgetGroup(PreviewWidgetGroupBase):
-    bl_idname = "FL_GGT_Preview"
-    bl_label = "Preview loop cuts"
-
     def setup(self, context):
-        self.setup_(context, PreviewWidget.bl_idname)
+        tool = self.get_tool()
 
-        tools = context.workspace.tools
-        for tool in tools:
-            name = tool.idname 
-            if name in {"fl.fast_loop_tool", "fl.fast_loop_classic_tool"}:
-                if name == "fl.fast_loop_tool":
-                    bpy.ops.fl.fast_loop('INVOKE_DEFAULT', invoked_by_tool=True)
-                else:
-                    bpy.ops.fl.fast_loop_classic('INVOKE_DEFAULT', invoked_by_tool=True)
+        tools = bpy.context.workspace.tools
+        current_active_tool = tools.from_space_view3d_mode(bpy.context.mode).idname
+        if current_active_tool == tool.bl_idname:
+            bpy.app.timers.register(partial(execute_operator, tool.get_operator()), first_interval=0.01)
+        
 
-                break
+    # def __del__(self):
+    #     if hasattr(self, "widget"):
+    #         object.__getattribute__(self.widget, 'removed_widget')()
+
+
+
+class FL_GGT_FastLoop(FL_GGT_GizmoGroupBase):
+    tool = FL_FastLoop
+    bl_idname = tool.bl_widget
+    bl_label = "Fast Loop GG"
+
+    def get_tool(self):
+        return __class__.tool
+
+class FL_GGT_FastLoopClassic(FL_GGT_GizmoGroupBase):
+    tool = FL_FastLoopClassic
+    bl_idname = tool.bl_widget
+    bl_label = "Fast Loop Classic GG"
+
+    def get_tool(self):
+        return __class__.tool
         
