@@ -1,6 +1,7 @@
 from functools import reduce
 
 from bmesh.types import *
+from mathutils import Vector
 
 # Blender source code adaptation returns a loop rather than an edge
 def bmesh_edge_ring_walker(edge: BMEdge):
@@ -399,6 +400,7 @@ def bmesh_edge_loop_walker(edge: BMEdge,  selected_edges_only=False, skip_rewind
     #Start the walker step code
     reached_end = False
     while not reached_end:
+  
         reached_end = True
         edge = curr_edge
         next_edge = None
@@ -420,7 +422,7 @@ def bmesh_edge_loop_walker(edge: BMEdge,  selected_edges_only=False, skip_rewind
 
                     visited_edges.add(next_edge)
                 
-                if selected_edges_only and not loop.edge.select:
+                if selected_edges_only and not next_edge.select:
                     reached_end = True
 
         elif loop is None: # wire edge
@@ -506,5 +508,22 @@ def bmesh_edge_loop_walker(edge: BMEdge,  selected_edges_only=False, skip_rewind
 
                 if selected_edges_only and not loop.edge.select:
                     reached_end = True
-
+        
         yield edge
+
+def is_ngon(bm: BMesh, face):
+    bm.faces.ensure_lookup_table()
+    face: BMFace = bm.faces[face]
+
+    return len(face.edges) >= 5
+
+def is_tri(bm: BMesh, face):
+    bm.faces.ensure_lookup_table()
+    face: BMFace = bm.faces[face]
+
+    return len(face.edges) == 3
+
+def get_face_from_index(bm: BMesh, face: int)-> BMFace:
+    bm.faces.ensure_lookup_table()
+    return bm.faces[face]
+

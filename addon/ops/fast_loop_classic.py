@@ -89,7 +89,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         if self.snap_context is not None and (not mode_enabled(Mode.EDGE_SLIDE)) or mode_enabled(Mode.REMOVE_LOOP): 
 
             mouse_coords = (event.mouse_region_x, event.mouse_region_y)
-            _ , element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
+            self.current_face_index, element_index, nearest_co = self.snap_context.do_snap(mouse_coords, self.active_object)
 
             if element_index is not None:
               self.update(element_index, nearest_co)
@@ -182,9 +182,41 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
             self.loop_draw_points.append(points_on_edge)
         
         return True
+    
+    def update_positions_along_single_edge(self):
+
+        self.loop_draw_points.clear()
+        self.edge_data.clear()
+
+        loop = self.current_ring[0]
+        if not loop.is_valid:
+            return False
+
+        points_on_edge = []
+        for point_on_edge in self.get_posititons_along_single_edge(loop):
+            points_on_edge.append(point_on_edge)
+
+        self.edge_data.append(EdgeData(points_on_edge, loop))
+        self.loop_draw_points.append(points_on_edge)
+
+        return True
+    
+    # Update a single edge when there is no edge ring
+    def update_edge(self, nearest_co=None):
+        if self.current_edge is None:
+            return False
+
+        if nearest_co is not None:
+            self.current_position = self.world_inv @ nearest_co
+
+        if self.current_ring:
+            if not self.bm.is_valid:
+                return False
+
+            self.distance, self.shortest_edge_len, self.edge_start_position, self.edge_end_position = self.get_data_for_single_edge()
 
  
-    def create_geometry(self, context, set_edge_flow=False):
+    def create_geometry(self, context):
         
         num_segments = 1
 
@@ -195,7 +227,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         flipped = self.flipped
         points = [data.points if not flipped else list(reversed(data.points)) for data in self.edge_data]
         
-        super().create_geometry(context, edges, points, edge_verts_co, num_segments, select_edges=set_edge_flow)
+        super().create_geometry(context, edges, points, edge_verts_co, num_segments)
 
     
     def get_posititon_along_edge(self, loop: BMLoop, i):
@@ -206,7 +238,7 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         if not loop.edge.is_manifold and not opposite_edge.is_manifold and loop.edge.index != self.current_edge.index:
             flipped = not flipped
 
-        # Edge is not manifold, being moused over, and it's the first edge in teh list
+        # Edge is not manifold, being moused over, and it's the first edge in the list
         elif not loop.edge.is_manifold and loop.edge.index == self.current_edge.index and i == 0:
             if opposite_edge.is_manifold:
                 flipped = not flipped
@@ -214,6 +246,28 @@ class FastLoopClassicOperator(bpy.types.Operator, FastLoopCommon):
         elif not loop.edge.is_manifold and loop.edge.index != self.current_edge.index and i == 0:
             if opposite_edge.is_manifold:
                 flipped = not flipped
+
+        start = loop.vert.co
+        end = loop.edge.other_vert(loop.vert).co
+
+        factor = self.offset
+        use_even = self.use_even
+
+        point = None
+        if use_even:
+                factor = utils.math.remap(0.0, (start-end).length, 0.0, self.current_edge.calc_length(), self.offset)
+
+        if not flipped: 
+            point = start.lerp(end, utils.math.clamp(0.0, factor, 1.0))
+        else:   
+            point = end.lerp(start, utils.math.clamp(0.0, factor, 1.0))
+                
+        return [world_mat @ point]
+
+
+    def get_posititons_along_single_edge(self, loop: BMLoop):
+        world_mat = self.world_mat
+        flipped = self.flipped
 
         start = loop.vert.co
         end = loop.edge.other_vert(loop.vert).co

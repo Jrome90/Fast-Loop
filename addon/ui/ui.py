@@ -43,7 +43,6 @@ class DrawFastLoopUI():
             col = b.column(align=True)
             col.label(text="Options")
 
-            col.prop(options, "select_new_edges" , toggle=True, text="Select New Edge Loops", icon='RESTRICT_SELECT_OFF')
             col.prop(options, "flipped" , toggle=True, text="Flip", icon='ARROW_LEFTRIGHT')
             col.prop(options, "use_even" , toggle=True, text="Even", icon='SNAP_MIDPOINT')
             col.prop(options, "multi_loop_offset" , toggle=True, text="Multi Loop Offset", icon='ANCHOR_LEFT')
@@ -57,8 +56,6 @@ class DrawFastLoopUI():
 
             options = utils.ops.options()
             if options is not None:
-                # col.prop(options, "segments", text="Loops")
-                #col.label(text="Multi Loop:")
                 col.prop(options, "scale", text="Scale")
                 
 

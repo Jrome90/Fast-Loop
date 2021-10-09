@@ -92,7 +92,6 @@ def save_keymap(operator_id, modal_keymap: ModalKeymap=None):
             "midpoint": ('c', 'PRESS', False, False, False), 
             "mirrored": ('m', 'PRESS', False, False, False),
             "perpendicular": ('/', 'PRESS', False, False, False),
-            "select_new_loops": ('h', 'PRESS', False, False, False),
             "multi_loop_offset": ('o', 'PRESS', False, False, False),
             "scale": ('w', 'PRESS', False, False, False),
             "snap_points": ('s', 'PRESS', False, False, False),

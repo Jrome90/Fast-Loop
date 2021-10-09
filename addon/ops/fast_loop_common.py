@@ -118,14 +118,16 @@ class FastLoopCommon():
     is_classic = False
     dirty_mesh = False
     current_edge = None
+    current_face_index = None
     current_edge_index = None
     current_position = None
-    # Todo: Consolidate into single attribute
+
     edge_start_position = None
     edge_end_position = None
     shortest_edge_len = float('INF')
-    current_ring = None
+    current_ring = []
     is_loop = False
+    is_single_edge = False
     loop_draw_points = []
     remove_loop_draw_points = []
     edge_data = [] 
@@ -220,6 +222,7 @@ class FastLoopCommon():
     def update_current_ring(self):
         pass
 
+
     def update(self, element_index, nearest_co):
         bm: BMesh = self.ensure_bmesh()
         bm.edges.ensure_lookup_table()
@@ -230,13 +233,25 @@ class FastLoopCommon():
             self.current_edge_index = edge.index
 
             if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
-                if self.update_current_ring():
+                self.is_single_edge = False
+                if not utils.mesh.is_ngon(self.bm, self.current_face_index) and self.update_current_ring():
                     self.update_loops(nearest_co)
                     self.update_positions_along_edges()
+                else:
+                    # No edge ring found
+                    self.is_single_edge = True
+                    self.update_single_edge(nearest_co)
 
             elif mode_enabled(Mode.REMOVE_LOOP):
                 self.remove_loop_draw_points = self.compute_remove_loop_draw_points()
-                    
+
+
+    def update_single_edge(self, nearest_co):
+        self.current_ring.clear()
+        face = utils.mesh.get_face_from_index(self.bm, self.current_face_index)
+        self.current_ring.append(utils.mesh.get_face_loop_for_edge(face, self.current_edge))
+        self.update_edge(nearest_co)
+        self.update_positions_along_single_edge()            
 
 
     def edge_slide_finished(self, message=None, data=None):
@@ -262,7 +277,7 @@ class FastLoopCommon():
                         self.create_geometry(context)
 
                     elif event.shift or self.set_flow_enabled():
-                        self.create_geometry(context, set_edge_flow=True)
+                        self.create_geometry(context)
                         try:
                             self.set_flow()
                         except:
@@ -324,7 +339,7 @@ class FastLoopCommon():
         return handled
 
 
-    def create_geometry(self, context, edges, points, edge_verts_co, num_segments, select_edges=False):
+    def create_geometry(self, context, edges, points, edge_verts_co, num_segments):
         def divide_chunks(l, n):
             for i in range(0, len(l), n): 
                 yield set(l[i:i + n])
@@ -339,17 +354,15 @@ class FastLoopCommon():
         bm.verts.ensure_lookup_table()
 
         inner_verts = []
-        if select_edges:
-            bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.mesh.select_all(action='DESELECT')
 
-            for elem in geom_inner:
-                if isinstance(elem, BMVert):
-                    inner_verts.append(elem.index)
+        for elem in geom_inner:
+            if isinstance(elem, BMVert):
+                inner_verts.append(elem.index)
+                elem.select = True
 
-                elif isinstance(elem, BMEdge):
-                    elem.select = True
-        else:
-            inner_verts = [vert.index for vert in geom_inner if isinstance(vert, BMVert)]
+            elif isinstance(elem, BMEdge):
+                elem.select = True
 
         chunks = list(divide_chunks(inner_verts, num_segments))        
         edge_splits = defaultdict(list)
@@ -441,7 +454,7 @@ class FastLoopCommon():
 
 
     def draw_3d(self, context):
-        if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)) and self.current_edge is not None and self.loop_draw_points:
+        if not self.is_single_edge and not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)) and self.current_edge is not None and self.loop_draw_points:
             color = utils.common.prefs().loop_color
             line_width = utils.common.prefs().line_width
             transposed_array = list(map(list, zip(*self.loop_draw_points)))
@@ -461,8 +474,11 @@ class FastLoopCommon():
 
         elif mode_enabled(Mode.REMOVE_LOOP) and self.remove_loop_draw_points:
             utils.drawing.draw_lines(self.remove_loop_draw_points, line_color=(1.0, 0.0, 0.0, 0.9))
-
-        self.remove_loop_draw_points.clear()
+            self.remove_loop_draw_points.clear()
+        
+        elif self.is_single_edge:
+            for loop in self.loop_draw_points:
+                utils.drawing.draw_points(loop, utils.common.prefs().vertex_color, utils.common.prefs().vertex_size)
 
 
         # Debug points
@@ -526,6 +542,36 @@ class FastLoopCommon():
         is_loop = found_loop or is_tri_fan_loop
 
         return distance, shortest_edge_len, edge_start_pos, edge_end_pos, is_loop
+
+    
+    def get_data_for_single_edge(self):
+
+        flipped = self.flipped
+
+        edge_loop: BMLoop = self.current_ring[0]
+
+        edge_start_pos = None
+        edge_end_pos = None
+        
+        vert = edge_loop.vert
+        vert_other = edge_loop.edge.other_vert(vert)
+   
+        vert_coords = [vert.co.copy(), vert_other.co.copy()]
+        
+        if flipped:
+            vert_coords.reverse()
+        
+        edge_start_pos = vert_coords[0]
+        edge_end_pos = vert_coords[1]
+
+        _, percent = intersect_point_line(self.current_position, vert_coords[0], vert_coords[1])
+
+        self.offset = percent
+
+        distance = (self.current_position - edge_start_pos).length
+        edge_len = edge_loop.edge.calc_length()
+
+        return distance, edge_len, edge_start_pos, edge_end_pos
         
     
     def select_edge_loop(self, context):
@@ -565,7 +611,6 @@ class FastLoopCommon():
         min_angle = prefs.min_angle
 
         bpy.ops.mesh.set_edge_flow('INVOKE_DEFAULT', tension=tension, iterations=iterations, min_angle=min_angle)
-        bpy.ops.mesh.select_all(action='DESELECT')
    
 
     def ensure_bmesh(self):

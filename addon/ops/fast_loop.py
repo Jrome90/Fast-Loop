@@ -46,9 +46,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     freeze_edge = False
     frozen_edge = None
     frozen_edge_index = None
-
-    # Needed for tri fan loops
-    current_face_index = None
+    frozen_face_index = None
 
     segments = 2
 
@@ -124,15 +122,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     @perpendicular.setter
     def perpendicular(self, value):
         return set_option('perpendicular', value)
-
-    select_new_edges = False
-    @property
-    def select_new_edges(self):
-        return get_options().select_new_edges
-
-    @select_new_edges.setter
-    def select_new_edges(self, value):
-        set_option('select_new_edges', value)
 
     use_snap_points = False
     @property
@@ -273,24 +262,29 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.current_ring = list(utils.mesh.bm_tri_fan_walker(self.bm, self.current_face_index, self.current_edge))
             return self.current_ring[1] is not None
 
-        return True
+        return self.current_ring
 
     
     def update(self, element_index, nearest_co):
         bm: BMesh = self.ensure_bmesh()
         bm.edges.ensure_lookup_table()
         edge = bm.edges[element_index]
-
+        
         if edge.is_valid:
             if not self.freeze_edge or (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
                 self.current_edge = edge
                 self.current_edge_index = edge.index
 
-
                 if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP)):
-                    if self.update_current_ring():
+                    self.is_single_edge = False
+                    if  not utils.mesh.is_ngon(self.bm, self.current_face_index) and self.update_current_ring():
                         self.update_loops(nearest_co)
                         self.update_positions_along_edges()
+                    else:
+                        # No edge ring found
+                        self.is_single_edge = True
+                        self.update_single_edge(nearest_co)
+
 
                 elif mode_enabled(Mode.REMOVE_LOOP):
                     self.remove_loop_draw_points = self.compute_remove_loop_draw_points()
@@ -298,12 +292,20 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             else:
                 self.current_edge = self.frozen_edge
                 self.current_edge_index = self.frozen_edge_index
+                self.current_face_index = self.frozen_face_index
 
                 if element_index == self.frozen_edge_index:
-                    if self.update_current_ring():
+                    if not utils.mesh.is_ngon(self.bm, self.current_face_index) and self.update_current_ring():
                         self.update_loops(nearest_co)
                         self.update_positions_along_edges()
+                    else:
+                        # No edge ring found
+                        self.is_single_edge = True
+                        self.update_single_edge(nearest_co)
+
+
     
+    # TODO: Update for single edge 
     def on_numeric_input_changed(self, value: str):
         if self.is_scaling:
             self.scale = float(value) * 0.01
@@ -393,9 +395,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             elif modal_event == "midpoint":
                 self.insert_at_midpoint = not self.insert_at_midpoint
 
-            elif modal_event == "select_new_loops":
-                self.select_new_edges = not self.select_new_edges
-            
             elif modal_event == "perpendicular":
                 self.perpendicular = not self.perpendicular
 
@@ -407,6 +406,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 if self.freeze_edge:
                     self.frozen_edge = self.current_edge
                     self.frozen_edge_index = self.current_edge_index
+                    self.frozen_face_index = self.current_face_index
 
             elif modal_event == "increase_loop_count":
                 
@@ -461,24 +461,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.segments = n
             self.edge_pos_algorithm = self.get_edge_pos_algorithm()
             handled = True
-        
-        # elif event.type in {'EQUAL', 'NUMPAD_PLUS', 'MINUS', 'NUMPAD_MINUS'} and event.value == 'PRESS':
-        #     if event.type in {'EQUAL', 'NUMPAD_PLUS'}:
-        #         self.segments += 1
-        #     else:
-        #         self.segments -= 1
-
-        #     if self.segments == 1:
-        #         self.from_ui = False
-        #         set_mode(Mode.SINGLE)
-        #         self.prev_mode = Mode.SINGLE
-        #     else:
-        #         self.from_ui = False
-        #         set_mode(Mode.MULTI_LOOP)
-        #         self.prev_mode = Mode.MULTI_LOOP
-
-        #     self.edge_pos_algorithm = self.get_edge_pos_algorithm()
-        #     handled = True
 
         elif event.type in {'ESC'}:
             set_option('cancel', True)
@@ -509,8 +491,10 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 delta_x = event.mouse_x - event.mouse_prev_x
                 delta_x *= 0.001 if event.shift else 0.01
                 self.scale += delta_x
-            
+
+                # TODO: Update for single edge 
                 self.update_loops()
+
                 if self.update_positions_along_edges():
                     self.start_mouse_pos_x = event.mouse_x
                 else:
@@ -602,6 +586,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             if not self.is_scaling:
                 self.distance, self.shortest_edge_len, self.edge_start_position, self.edge_end_position, self.is_loop = self.get_data_from_edge_ring()
 
+
     def update_positions_along_edges(self):
 
         self.loop_draw_points.clear()
@@ -623,6 +608,43 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.loop_draw_points.append(points_on_edge)
 
         return True
+    
+    def update_positions_along_single_edge(self):
+
+        self.loop_draw_points.clear()
+        self.edge_data.clear()
+
+        if mode_enabled(Mode.MULTI_LOOP) and self.segments == 1:
+            self.segments = 2
+            
+        loop = self.current_ring[0]
+        if not loop.is_valid:
+            return False
+
+        points_on_edge = []
+        for point_on_edge in self.get_posititons_along_single_edge(loop):
+            points_on_edge.append(point_on_edge)
+
+        self.edge_data.append(EdgeData(points_on_edge, loop))
+        self.loop_draw_points.append(points_on_edge)
+
+        return True
+
+
+    # Update a single edge when there is no edge ring
+    def update_edge(self, nearest_co=None):
+        if self.current_edge is None:
+            return False
+
+        if not self.is_scaling and nearest_co is not None:
+            self.current_position = self.world_inv @ nearest_co
+
+        if self.current_ring:
+            if not self.bm.is_valid:
+                return False
+
+            if not self.is_scaling:
+                self.distance, self.shortest_edge_len, self.edge_start_position, self.edge_end_position = self.get_data_for_single_edge()
 
 
     def update_snap_context(self):
@@ -642,9 +664,10 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.snap_context.set_snap_factor(self.snap_factor)
 
  
-    def create_geometry(self, context, set_edge_flow=False):
+    def create_geometry(self, context):
         def order_points(edge_data):
             points = []
+
             if self.loop_position_override and self.segments < 10:
                 points = [data.points if self.flipped else list(reversed(data.points)) for data in self.edge_data]
             else:
@@ -676,12 +699,24 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
       
         edge_verts_co = []
         if not self.use_multi_loop_offset and mode_enabled(Mode.MULTI_LOOP):
-            edge_verts_co = [(data.edge.other_vert(data.first_vert).co, data.first_vert.co) for data in self.edge_data]
+            if not self.is_single_edge:
+                edge_verts_co = [(data.edge.other_vert(data.first_vert).co, data.first_vert.co) for data in self.edge_data]
+            else:
+                if self.current_edge.is_boundary:
+                    edge_verts_co = [(data.first_vert.co, data.edge.other_vert(data.first_vert).co) for data in self.edge_data]
+                else:
+                    edge_verts_co = [(data.edge.other_vert(data.first_vert).co, data.first_vert.co) for data in self.edge_data]
         else:
-            edge_verts_co = [(data.first_vert.co, data.edge.other_vert(data.first_vert).co) for data in self.edge_data]
-     
+            if not self.is_single_edge:
+                edge_verts_co = [(data.first_vert.co, data.edge.other_vert(data.first_vert).co) for data in self.edge_data]
+            else:
+                if self.current_edge.is_boundary:
+                    edge_verts_co = [(data.edge.other_vert(data.first_vert).co, data.first_vert.co) for data in self.edge_data]
+                else:
+                    edge_verts_co = [(data.first_vert.co, data.edge.other_vert(data.first_vert).co) for data in self.edge_data]
+
         points = order_points(self.edge_data)
-        super().create_geometry(context, edges, points, edge_verts_co, num_segments, select_edges=self.select_new_edges or set_edge_flow)
+        super().create_geometry(context, edges, points, edge_verts_co, num_segments)
 
 
     def get_posititons_along_edge(self, loop: BMLoop, i):
@@ -692,7 +727,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         if not loop.edge.is_manifold and not opposite_edge.is_manifold and loop.edge.index != self.current_edge.index:
             flipped = not flipped
 
-        # Edge is not manifold, being moused over,  and it's the first edge in the list
+        # Edge is not manifold, being moused over, and it's the first edge in the list
         elif not loop.edge.is_manifold and loop.edge.index == self.current_edge.index and i == 0:
             if opposite_edge.is_manifold:
                 flipped = not flipped
@@ -701,6 +736,24 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             if opposite_edge.is_manifold:
                 flipped = not flipped
 
+        start = loop.vert.co
+        end = loop.edge.other_vert(loop.vert).co
+
+        factor = self.offset
+
+        if self.insert_at_midpoint:
+            factor = 0.5
+
+        straight = self.perpendicular
+        use_even = self.use_even and not straight
+
+        return self.edge_pos_algorithm.execute(self, start, end, factor, use_even, flipped, self.mirrored, straight)
+
+    
+    def get_posititons_along_single_edge(self, loop: BMLoop):
+
+        flipped = self.flipped
+       
         start = loop.vert.co
         end = loop.edge.other_vert(loop.vert).co
 

@@ -137,12 +137,6 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         update = lambda s, c: prop_changed(s, c, "loop_position_override")
     )
 
-    select_new_edges: bpy.props.BoolProperty(
-        name='Select Edge Loops',
-        description='Select the newly created edge loops',
-        default=False,
-    )
-
     def segments_changed(self, context):
         scene = context.scene
         scene = bpy.context.scene

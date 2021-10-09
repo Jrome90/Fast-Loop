@@ -51,7 +51,7 @@ def add_shortcut_info(keymap, text_box, icons_box):
 
 # Return an ordered list of fast loop's actions needed for ordered UI
 def get_ordered_fl_keymap_actions():
-    return  ["even", "flip", "mirrored", "midpoint", "perpendicular",  "multi_loop_offset", "select_new_loops", "scale", "snap_points", "lock_snap_points", "freeze_edge", "increase_loop_count", "decrease_loop_count"]
+    return  ["even", "flip", "mirrored", "midpoint", "perpendicular",  "multi_loop_offset", "scale", "snap_points", "lock_snap_points", "freeze_edge", "increase_loop_count", "decrease_loop_count"]
 
 def get_mouse_select_text():
     prefs = common.prefs()

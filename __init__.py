@@ -18,7 +18,7 @@ bl_info = {
     'description': 'Fast Loop \
                     Should work with all blender versions from 2.91 onwards',
     'blender': (2, 91, 0),
-    'version': (0, 1, 0),
+    'version': (0, 2, 0),
     'category': 'Mesh',
 }
 
