@@ -505,6 +505,8 @@ class FastLoopCommon():
             edge_ring.pop()
             is_tri_fan_loop = True
         
+        distance = 0.0
+        
         for loop in edge_ring:
             if loop is None:
                 break
@@ -536,8 +538,10 @@ class FastLoopCommon():
                 found_loop = True
             else:
                 found_loop = False
+                
+            if edge_start_pos is not None:
+                distance = (self.current_position - edge_start_pos).length
 
-        distance = (self.current_position - edge_start_pos).length
         shortest_edge_len = shortest_edge_len ** 0.5
         is_loop = found_loop or is_tri_fan_loop
 
