@@ -53,7 +53,7 @@ class FL_Props(bpy.types.PropertyGroup):
         name='op running',
         description='Is the operator running',
         default=False,
-        options='SKIP_SAVE'
+        options={'SKIP_SAVE'}
     )
 
 def prop_changed(self, context, prop):
