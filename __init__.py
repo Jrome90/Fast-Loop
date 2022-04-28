@@ -18,17 +18,15 @@ bl_info = {
     'description': 'Fast Loop \
                     Should work with all blender versions from 2.91 onwards',
     'blender': (2, 91, 0),
-    'version': (0, 2, 0),
+    'version': (0, 2, 1),
     'category': 'Mesh',
 }
 
 
 from . import addon
 
-
 def register():
     addon.register()
-
 
 def unregister():
     addon.unregister()
