@@ -120,21 +120,21 @@ def get_context_overrides(*objects):
 
     def get_base_context():
         window = bpy.context.window_manager.windows[0]
-        area = None
-        region = None
-        space = None
+        screen_area = None
+        area_region = None
+        area_space = None
         for area in window.screen.areas:
             if area.type == 'VIEW_3D':
-                area = area
+                screen_area = area
                 for region in area.regions:
                     if region.type == 'WINDOW':
-                        region = region
+                        area_region = region
                 for space in area.spaces:
                     if space.type == 'VIEW_3D':
-                        space = space
+                        area_space = space
                 
 
-        return {'window': window, 'screen': window.screen, 'area' : area, 'region': region, 'space': space}
+        return {'window': window, 'screen': window.screen, 'area' : screen_area, 'region': area_region, 'space': area_space}
 
     context = get_base_context()
     context['object'] = objects[0]
