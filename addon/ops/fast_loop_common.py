@@ -267,7 +267,7 @@ class FastLoopCommon():
             return True
 
         handled = False  
-        if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'}:
+        if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'} and not event.alt:
             if self.current_edge is not None and event.type in {btn('LEFTMOUSE')} and event.value == 'PRESS':
                 if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)):
 
