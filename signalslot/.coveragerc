@@ -1,0 +1,12 @@
+# .coveragerc to control coverage.py
+[run]
+branch = True
+source = signalslot
+omit =
+	*/tests.py
+	*/test.py
+
+[report]
+ignore_errors = True
+exclude_lines = 
+    pragma: no cover

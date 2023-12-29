@@ -1,8 +1,8 @@
 import bpy
-from . import gizmo_preview
+from . import gizmo_snapping
 
-classes = [gizmo_preview.PreviewWidget,
-            gizmo_preview.PreviewWidgetGroup,
+classes = [
+    gizmo_snapping.RP_GGT_SnapGizmoGroup,
         ]
 
 def register():

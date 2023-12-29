@@ -7,11 +7,12 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_point_line
                             
 
-def is_point_on_line_segment(point, vec_a, vec_b, abs_tol=1e-10):
+def is_point_on_line_segment(point, vec_a, vec_b, abs_tol=1e-6):
     dist, lambda_ = dist_to_line_segment_squared(point, vec_a, vec_b)
     if 0.0 <= lambda_ <= 1.0:
         return isclose(dist, 0.0, abs_tol=abs_tol)
     return False
+
 
 def dist_to_line_segment_squared(point, vec_a, vec_b):
     cp , l = closest_to_line(point, vec_a, vec_b)
@@ -25,15 +26,6 @@ def closest_to_line(point, vec_a, vec_b)-> Vector:
 
     return (o + d * lambda_), -lambda_
 
-
-# def line_point_factor_2d(point:Vector, vec_a: Vector, vec_b: Vector):
-#     assert(len(vec_a) == 2 and len(vec_b) == 2 and len(point) == 2)
-#     d: Vector = vec_b - vec_a
-#     c: Vector = point - vec_a
-    
-#     l = d.length_squared 
-#     return d.dot(c) / l
-
 def project_point_plane(point: Vector, plane_n: Vector):
     """ Project a point onto the plane.
 
@@ -46,20 +38,20 @@ def project_point_plane(point: Vector, plane_n: Vector):
 
 
 def ray_plane_intersection(ray_origin, ray_dir_vec, plane_origin,  plane_n):
-    denom = ray_dir_vec.dot(plane_n)
+    denom = plane_n.dot(ray_dir_vec)
     if denom == 0:
         return 0
     
-    return ((plane_origin) - ray_origin).dot(plane_n) / denom
+    return (plane_origin - ray_origin).dot(plane_n) / denom
 
 
-def remap(imin, imax, omin, omax, v, clamp=False):
+def remap(imin, imax, omin, omax, v, clamp_val=False):
     
     if imax - imin == 0:
          return 1/v
     new_val = (v - imin) / (imax - imin) * (omax - omin) + omin
 
-    if clamp:
+    if clamp_val:
         if (omin < omax):
             return clamp(omin, new_val, omax)
         else:
@@ -119,6 +111,96 @@ def clamp(minvalue, value, maxvalue):
     return max(minvalue, min(value, maxvalue))
 
 
-def location_3d_to_2d(loc: Vector):
-    context = bpy.context
-    return location_3d_to_region_2d(context.region, context.space_data.region_3d, loc)
+def location_3d_to_2d(loc: Vector, context_override=None):
+    region = None
+    rv3d = None
+    if context_override is None:
+        context =  bpy.context
+        region = context.region
+        rv3d = context.space_data.region_3d
+    else:
+        region = context_override["region"]
+        rv3d = context_override["space"].region_3d
+
+    return location_3d_to_region_2d(region, rv3d, loc)
+
+
+def inv_lerp(a, b, value):
+    ab = b - a
+    av = value - a
+
+    d = ab.dot(ab)
+
+    if d != 0.0:
+        return av.dot(ab) / d
+    
+    return 0.0
+
+
+def normalize_vector(vec:Vector, unit_len):
+    normalized_vec = None
+    d = vec.dot(vec)
+    if d > 1.0e-35:
+        d = d**0.5
+        normalized_vec = vec * (unit_len/d)
+    else:
+        normalized_vec = Vector()
+        
+    return normalized_vec
+
+
+def ortho_basis_from_normal(normal: Vector):
+    epsilon = 1.192092896e-07
+    len_sq = normal.x**2 + normal.y**2
+    if len_sq > epsilon:
+        d = 1.0 / (len_sq**0.5)
+
+        ortho_vec_a = Vector()
+    
+        ortho_vec_a[0] = normal.y * d
+        ortho_vec_a[1] = -normal.x * d
+        ortho_vec_a[2] = 0.0
+
+        ortho_vec_b = normal.cross(ortho_vec_a)
+
+        return ortho_vec_a, ortho_vec_b
+    else:
+        ortho_vec_a = Vector()
+        ortho_vec_b = Vector()
+
+        ortho_vec_a.x = -1 if normal.y < 0 else 1
+        ortho_vec_a.y = 0
+        ortho_vec_a.z = 0
+
+        ortho_vec_b.x = 0
+        ortho_vec_b.y = 1
+        ortho_vec_b.z = 0
+
+        return ortho_vec_a, ortho_vec_b
+
+def basis_mat_from_plane_normal(normal:Vector)->Matrix:
+    basis_mat = Matrix().to_3x3()
+
+    x, y = ortho_basis_from_normal(normal)
+    if x is not None and y is not None:
+        basis_mat[0] = x
+        basis_mat[1] = y
+        basis_mat[2] = normal
+
+        basis_mat.transpose()
+        return basis_mat
+
+def rotate_direction_vec(vec: Vector, rot_mat: Matrix)-> Vector:
+    return rot_mat.to_quaternion() @ vec
+
+def cm_to_meters(cms):
+        return cms / 100
+
+def meters_to_cm(meters):
+    return meters * 100
+
+def mm_to_meters(mms):
+    return mms / 1000
+
+def meters_to_mm(meters):
+    return meters * 1000

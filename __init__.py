@@ -15,20 +15,17 @@
 bl_info = {
     'name': 'Fast Loop',
     'author': 'Jrome',
-    'description': 'Fast Loop',
-    'blender': (2, 91, 0),
-    'version': (0, 0, 8),
+    'description': 'Quickly insert loop cuts at the mouse position with a preview of the loop cuts.',
+    'blender': (4, 0, 0),
+    'version': (2, 0, 0),
     'category': 'Mesh',
-    'location': 'Mesh > Edge > Connect Edges',
 }
 
 
 from . import addon
 
-
 def register():
     addon.register()
-
 
 def unregister():
     addon.unregister()

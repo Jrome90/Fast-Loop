@@ -1,11 +1,10 @@
+from importlib import import_module
 from . import props
 from . import ops
 from . import tools
 from . import ui
-from .ui import gizmos 
+from . ui import gizmos 
 from . import keymaps
-
-
 
 modules = (
     props,
@@ -13,7 +12,7 @@ modules = (
     tools,
     ui,
     gizmos,
-    keymaps,
+    # keymaps, Disabled keymap setup for addon. Please manually configure keymappings.
 )
 
 

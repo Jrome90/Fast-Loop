@@ -11,5 +11,5 @@ def get_ray(region, rv3d, mouse_coords):
 
 def get_mouse_line_isect(context, mouse_coords, p1, p2):
     mouse_pos, mouse_dir = get_ray(context.region, context.region_data, mouse_coords)
-    _ , isect= intersect_line_line( p1, p2, mouse_pos, mouse_pos + (mouse_dir * 10000.0)) 
-    return isect
+    isect_points = intersect_line_line( p1, p2, mouse_pos, mouse_pos + (mouse_dir * 10000.0))
+    return isect_points if isect_points is not None else (None, None)

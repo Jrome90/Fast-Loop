@@ -3,11 +3,11 @@ from ... addon import utils
 from . fast_loop import FL_ToolBase
 
 class FL_FastLoopClassic(FL_ToolBase):
-
     bl_idname = "fl.fast_loop_classic_tool"
     bl_label = "Fast Loop Classic"
     bl_description = ( "Add loop cuts or modify existing ones.")
     bl_icon = os.path.join(os.path.join(os.path.dirname(__file__), "icons") , "fl.fast_loop_classic")
+    bl_widget  = "FL_GGT_FastLoopClassic"
 
     
     @classmethod
@@ -17,3 +17,5 @@ class FL_FastLoopClassic(FL_ToolBase):
         layout.popover_group(context=".set_flow_options", **popover_kw)
 
 
+    def get_operator():
+        return 'fl.fast_loop_classic'

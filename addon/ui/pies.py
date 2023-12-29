@@ -44,8 +44,9 @@ class FastLoopPie(bpy.types.Menu):
         sub_mode = col.box()
         sub_mode.label(text="Sub Mode")
 
-        sub_mode.prop(options, 'insert_midpoint', toggle=True, text="Midpoint", icon='SNAP_MIDPOINT')
-
+        # sub_mode.prop(options, 'insert_midpoint', toggle=True, text="Midpoint", icon='SNAP_MIDPOINT')
+        sub_mode.prop(options, 'perpendicular', toggle=True, text="Perpendicular", icon='SNAP_PERPENDICULAR')
+        sub_mode.prop(options, 'mirrored', toggle=True, text="Mirrored", icon='MOD_MIRROR')
 
     def menu_snapping(self, pie, context):
         box = pie.split()
@@ -59,8 +60,14 @@ class FastLoopPie(bpy.types.Menu):
         if options is not None:
             col.prop(options, "use_snap_points" , toggle=True, text="Turn off Snapping" if options.use_snap_points else "Turn on Snapping", icon='SNAP_INCREMENT')
             col.prop(options, "lock_snap_points" , toggle=True, text="Unlock Points" if options.lock_snap_points else "Lock Points", icon='LOCKED' if options.lock_snap_points else 'UNLOCKED')
-            col.prop(options, "snap_divisions", slider=True)
-            col.prop(options, "snap_factor")
+            # col.prop(options, "snap_divisions", slider=True)
+            # col.prop(options, "snap_factor")
+
+            # col.prop(options, "use_distance")
+            # split_col = b.column()
+            # split_col.enabled = True if options.use_distance else False
+            # split_col.prop(options, "auto_segment_count")
+            # split_col.prop(options, "snap_distance")
 
     
     def menu_options(self, pie, context):
@@ -72,9 +79,9 @@ class FastLoopPie(bpy.types.Menu):
 
         options = utils.ops.options()
         if options is not None:
-            col.prop(options, "flipped" , toggle=True, text="Flip", icon='ARROW_LEFTRIGHT')
-            col.prop(options, "use_even" , toggle=True, text="Even", icon='SNAP_MIDPOINT')
-            col.prop(options, "multi_loop_offset" , toggle=True, text="Multi Loop Offset",)
+            col.prop(options, "flipped", toggle=True, text="Flip", icon='ARROW_LEFTRIGHT')
+            col.prop(options, "use_even", toggle=True, text="Even", icon='SNAP_MIDPOINT')
+            col.prop(options, "use_multi_loop_offset", toggle=True, text="Multi Loop Offset",)
     
     def exit_button(self, pie, context):
         box = pie.split()

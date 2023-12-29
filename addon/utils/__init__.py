@@ -4,5 +4,9 @@ from . import ui
 from . import safety
 from . import math
 from . import mesh
-from . import drawing
+from . import edge_slide
+from . import draw_3d
+from . import draw_2d
 from . import raycast
+from . import serialization
+from . import shaders

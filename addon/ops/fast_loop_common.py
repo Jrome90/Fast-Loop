@@ -1,100 +1,102 @@
-from collections import defaultdict
+from __future__ import annotations
+from traceback import print_exc
+from collections import namedtuple
+from typing import List, Set, TYPE_CHECKING
+if TYPE_CHECKING:
+    from bmesh.types import BMEdge
 
 import bpy, bmesh
-from bmesh.types import *
-from mathutils import Matrix
-from mathutils.geometry import intersect_point_line
-from .. import utils
+from bpy.types import Object
 
-from enum import Enum
-class Mode(Enum):
-    MIRRORED = 2
-    SINGLE = 4
-    MULTI_LOOP = 8
-    REMOVE_LOOP = 16
-    SELECT_LOOP = 32
-    EDGE_SLIDE = 64
-  
+from .. utils import common, draw_3d, mesh, math
+from .. props import addon
+from ..props.fl_properties import CommonProps
+from .. snapping.snapping import SnapContext
 
-enum_to_str = {Mode.SINGLE: 'SINGLE', Mode.MIRRORED: 'MIRRORED', Mode.MULTI_LOOP: 'MULTI_LOOP', Mode.REMOVE_LOOP: 'REMOVE_LOOP',  Mode.SELECT_LOOP: 'SELECT_LOOP', Mode.EDGE_SLIDE: 'EDGE_SLIDE'}
-str_to_enum = {v: k for k, v in enum_to_str.items()}
+from . fast_loop_helpers import (get_options, get_props, set_prop)
+from .fast_loop_actions import Actions
+from .multi_object_edit import MultiObjectEditing
 
-def get_active_mode():
-    return str_to_enum[utils.ops.options().mode]
+from .edge_ring import LoopCollection
+from .edge_data import EdgeData
+     
+CurrentPos = namedtuple('CurrentPos','world local')
+class FastLoopCommon(Actions, MultiObjectEditing):
+    common_props: CommonProps = CommonProps()
+#region -Properties
+    @property
+    def fast_loop_options(self)-> addon.FL_Options:
+        return get_options()
 
-def mode_enabled(mode) -> bool:
-    active_mode = get_active_mode()
-    if mode in enum_to_str:
-        return active_mode == mode
-    return False
+    is_running = False
+    @property
+    def is_running(self):
+        return get_props().is_running
 
-def set_mode(mode):
-    utils.ops.set_option('mode', enum_to_str[mode])
-
-
-def get_options():
-    return utils.ops.options()
-    
-def set_option(option, value):
-    return utils.ops.set_option(option, value)
-
-
-class FastLoopCommon():
+    @is_running.setter
+    def is_running(self, value):
+        set_prop('is_running', value)
 
     flipped = False
     @property
     def flipped(self):
-        return utils.ops.options().flipped
+        return self.fast_loop_options.flipped
 
     @flipped.setter
     def flipped(self, value):
-        set_option('flipped', value)
+        self.fast_loop_options.flipped = value
 
     use_even = False
     @property
     def use_even(self):
-        return utils.ops.options().use_even
+        return self.fast_loop_options.use_even
     
     @use_even.setter
     def use_even(self, value):
-        set_option('use_even', value)
+        self.fast_loop_options.use_even = value
     
     cancelled = False
     @property
     def cancelled(self):
-        return utils.ops.options().cancel
+        return self.fast_loop_options.cancel
     
     @cancelled.setter
     def cancelled(self, value):
-        set_option('cancel', value)
+       self.fast_loop_options.cancel = value
 
+#endregion
+    edge_pos_algorithm = None
 
-    is_classic = False
-    is_running = False
-    active_object = None
-    bm: BMesh = None
     dirty_mesh = False
     current_edge = None
+    current_face_index = None
+    current_face_index = None
     current_edge_index = None
-    current_position = None
-    # Todo: Consolidate into single attribute
-    edge_start_position = None
-    edge_end_position = None
-    shortest_edge_len = float('INF')
-    current_ring = None
-    is_loop = False
-    loop_draw_points = []
-    remove_loop_draw_points = []
-    edge_data = [] 
-    ring_loops = {}
 
-    world_mat: Matrix = None
-    world_inv: Matrix = None
+    current_position = None 
+    
+    loop_data: LoopCollection  = None
+    edge_data: EdgeData = None
+
+    is_loop = False
+    is_single_edge = False
+    is_single_edge = False
+    loop_draw_points = []
+
+    is_snapping = False # Used to be True if actively snapping to an element before 4.0 
+    snap_position = None
     snap_context = None
 
-    offset = 0.0
-    distance= 0.0
-    start_mouse_pos_x = None
+    area_invoked = None
+
+    # Debug 
+    points_3d: List = []
+    points_3d_colors: List = []
+
+    def add_debug_point(self, point, color=(0.0, 1.0, 0.0, 1.0)):
+        self.points_3d.append(point)
+        self.points_3d_colors.append(color)
+
 
     @classmethod
     def poll(cls, context):
@@ -102,43 +104,59 @@ class FastLoopCommon():
                 and context.active_object
                 and context.active_object.type == "MESH"
                 and context.active_object.mode == 'EDIT'
-                
               )
 
+    
+    def event_raised(self, event, value, context=None):
+        pass
 
+    
     def setup(self, context):
-        self.active_object = context.active_object
-        self.world_mat = context.object.matrix_world
-        self.world_inv = context.object.matrix_world.inverted_safe()
-        self.ensure_bmesh()
-        utils.mesh.ensure(self.bm)
+        # For blender 4.0
+        context.tool_settings.snap_elements_tool = 'DEFAULT'
+
+        addon.FL_Options.register_listener(self, self.event_raised)
+
+        self.add_selected_editable_objects(context)
+        #TODO Sometimes the index is out of range. Need to find out why
+        if not list(self.selected_editable_objects.values()):
+            self.report({'ERROR'}, "Something went wrong. Toggle edit mode and try again")
+            return {"CANCELLED"}
+        
+        self.active_object = list(self.selected_editable_objects.values())[0]
+        self.ensure_bmesh_(self.active_object)
+        mesh.ensure(self.active_object.bm)
 
         self.is_loop = False
-        self.edge_data.clear()
-        self.ring_loops.clear()
         self.loop_draw_points.clear()
         
-        self.bm.select_mode = {'EDGE'}
-        self.bm.select_flush_mode()
+        self.active_object.bm.select_mode = {'EDGE'}
+        self.active_object.bm.select_flush_mode()
+
+
+    def invoke(self, context, event):
+        self.setup(context)
+        self.area_invoked = context.area
+        self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self.draw_3d, (context, ), 'WINDOW', 'POST_VIEW')
+        self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_add(self.draw_2d, (context, ), 'WINDOW', 'POST_PIXEL')
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
 
 
     def cancel(self, context):
         self.report({'INFO'}, 'Cancelled')
         self.cleanup(context)
         if self.invoked_by_tool:
-            bpy.ops.wm.tool_set_by_id(name = "builtin.select_box")
+            if context.area is not None:
+                bpy.ops.wm.tool_set_by_id(name = "builtin.select_box")
         return {'CANCELLED'}
 
 
     def cleanup(self, context):
-        self.is_running = False
-        self.edge_data.clear()
-        self.ring_loops.clear()
+        self.points_3d_colors.clear()
+        self.points_3d.clear()
+        self.selected_editable_objects.clear()
         self.loop_draw_points.clear()
-        
-        context.workspace.status_text_set(None)
-        context.area.header_text_set(None)
-
         self.cancelled = False
 
         if self.dirty_mesh:
@@ -151,238 +169,245 @@ class FastLoopCommon():
 
         if getattr(self, 'draw_handler_3d', None):
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_3d, 'WINDOW')
+        
+        SnapContext.remove(self)
 
-        context.area.tag_redraw()
-
-
-    def create_geometry(self, context, edges, points, edge_verts_co, num_segments, set_edge_flow=False):
-        def divide_chunks(l, n):
-            for i in range(0, len(l), n): 
-                yield set(l[i:i + n])
-
-        def distance_sq(p1, p2):
-            return (p1 - p2).length_squared
-
-        bm: BMesh = self.ensure_bmesh()
-
-        ret = bmesh.ops.subdivide_edges(bm, edges=edges, cuts=num_segments, use_grid_fill=False, use_only_quads=True)
-        geom_inner = ret["geom_inner"]
-        bm.verts.ensure_lookup_table()
-
-        inner_verts = []
-        if not set_edge_flow:
-            inner_verts = [vert.index for vert in geom_inner if isinstance(vert, BMVert)]
-        else:
-            for elem in geom_inner:
-                if isinstance(elem, BMVert):
-                    inner_verts.append(elem.index)
-
-                elif isinstance(elem, BMEdge):
-                    elem.select_set(True)
-
-        chunks = list(divide_chunks(inner_verts, num_segments))        
-        edge_splits = defaultdict(list)
-        moved_verts = set()
-        for g, (vec_a, vec_b) in enumerate(edge_verts_co):
-            
-            found_at = None
-            vert_set: set = set()
-            for i, vert_indices in enumerate(chunks):
-                vert_set = vert_indices.copy()
-                for vert_index in vert_indices:
-                    vert = bm.verts[vert_index]
-                    if utils.math.is_point_on_line_segment(vert.co, vec_a, vec_b):
-                        edge_splits[g].append(vert.index)
-                        vert_set.difference_update(set([vert.index]))
-                        found_at = i
-                        break
-                if found_at is not None:
-                    break
-                
-            if found_at is not None:
-                for vert_index in vert_set:
-                    edge_splits[g].append(vert_index)
-                del chunks[found_at]
-
-            vert_indices = edge_splits[g]
-            vert_indices.sort(key=lambda p :distance_sq(vec_a, bm.verts[p].co))
-
-            if g == 0 and num_segments >= 2 and edges[g].is_boundary:
-                vert_indices.reverse()
-
-            for i, vert_index in enumerate(vert_indices):
-                vert: BMVert = bm.verts[vert_index]
-
-                points_along_edge = points[g]
-                if i < len(points_along_edge) and vert.index not in moved_verts:
-                    vert.co = self.world_inv @ points_along_edge[i]
-                    moved_verts.add(vert.index)
-
-        mesh = context.active_object.data
-        bmesh.update_edit_mesh(mesh)
-
-
-    def compute_remove_loop_draw_points(self):
-
-        if self.current_edge is None:
-            return 
-
-        points = []
-
-        world_mat = self.world_mat
-        loop_edges  = []
-        edge: BMEdge = self.current_edge
-        for i, loop_edge in enumerate(utils.mesh.bmesh_edge_loop_walker(edge)):
-
-            if i >= 1:
-                vert = utils.mesh.get_vertex_shared_by_edges([loop_edge, loop_edges[i-1]])
-                points.append(world_mat @ vert.co)
-                
-            loop_edges.append(loop_edge)
-
-        # Add the missing points that need to be drawn
-        if len(loop_edges) > 1:
-            
-            last_vert = utils.mesh.get_vertex_shared_by_edges([loop_edges[0], loop_edges[-1]])
-            # A loop was found
-            if last_vert is not None:
-                points.append(world_mat @ last_vert.co)
-                points.append(world_mat @ loop_edges[0].other_vert(last_vert).co)
-
-                connecting_vert = utils.mesh.get_vertex_shared_by_edges([loop_edges[0], loop_edges[1]])
-                points.append(world_mat @ connecting_vert.co)
-                points.append(world_mat @ loop_edges[1].other_vert(connecting_vert).co)
-            # It's not a loop
-            else:
-                connecting_vert = utils.mesh.get_vertex_shared_by_edges([loop_edges[0], loop_edges[1]])
-                points.insert(0, world_mat @ loop_edges[0].other_vert(connecting_vert).co)
-                points.insert(0, world_mat @ connecting_vert.co)
-
-                connecting_vert2 = utils.mesh.get_vertex_shared_by_edges([loop_edges[-2], loop_edges[-1]])
-                points.append(world_mat @ connecting_vert2.co)
-                points.append(world_mat @ loop_edges[-1].other_vert(connecting_vert2).co)
-
-        else:
-                points.clear()
-                points.extend([world_mat @ loop_edges[0].verts[0].co, world_mat @ loop_edges[0].verts[1].co])
-                
-        return points
+        # To prevent an error when the area is None. It does happen :/
+        if context.area is not None:
+            context.area.tag_redraw()
 
 
     def draw_3d(self, context):
-        if not (mode_enabled(Mode.REMOVE_LOOP) or mode_enabled(Mode.SELECT_LOOP) or mode_enabled(Mode.EDGE_SLIDE)) and self.current_edge is not None and self.loop_draw_points:
+        self.current_action.draw_3d(context)
+        # Debug points
+        # if self.points_3d and not self.points_3d_colors:
+        draw_3d.draw_points(self.points_3d, size=5)
+        self.points_3d.clear()
+        # elif self.points_3d and self.points_3d_colors:
+        #     draw_3d.draw_debug_points(self.points_3d, self.points_3d_colors, size=5.0)
             
-            transposed_array = list(map(list, zip(*self.loop_draw_points)))
-            for loop in transposed_array:
-                if self.is_loop:
-                    utils.drawing.draw_line_loop(loop)
-                else:
-                    utils.drawing.draw_line(loop)
+    
+    def draw_2d(self, context):
+        self.current_action.draw_ui(context)
+    
 
-            if self.use_even:
-                utils.drawing.draw_point(self.world_mat @ self.edge_start_position, color=(1.0, 0.0, 0.0, 0.4))
+    def modal(self, context, event):
+        handled = self.current_action.handle_input(context, event)
+        return handled
 
-        elif mode_enabled(Mode.REMOVE_LOOP) and self.remove_loop_draw_points:
-            utils.drawing.draw_line_loop(self.remove_loop_draw_points, line_color=(1.0, 0.0, 0.0, 0.4))
+    
+    def create_geometry(self, edges, points, edge_verts, num_segments, select_new_edges=False)-> None | Set[BMEdge]:
+        bm = self.ensure_bmesh_(self.active_object)
 
+        all_verts = set()
+        split_verts_start = []
+        split_verts_end = []
+        prev_cut_edge_verts = []
+        selected_edges = set()
+        for i, (edge, pos, (vert_a, vert_b)) in enumerate(zip(edges, points, edge_verts)):
+            
+            all_verts.add(vert_a)
+            all_verts.add(vert_b)
+            #TODO: Investigate ReferenceError: BMesh data of type BMEdge has been removed can happen with mirror mod when undoing
+            try:
+                if i == 0 and num_segments >= 2 and edge.is_boundary:
+                    pos.reverse()
+            except ReferenceError:
+               return self.exception_occured(bpy.context)
 
-        self.remove_loop_draw_points.clear()
-
-
-    def calc_edge_directions(self):
-        edge = self.current_edge
-
-        ring_loops = {}
-        edge_ring = self.current_ring
-        flipped = self.flipped
-
-        found_loop = False
-        first_ring_edge = edge_ring[0]
-        self.shortest_edge_len = float('INF')
-
-        for loop in edge_ring:
+            new_verts = []
         
-            vert = loop.vert
-            vert_other = loop.edge.other_vert(vert)
+            for p in pos:
+                percent = math.inv_lerp(self.world_mat @ vert_a.co, self.world_mat @ vert_b.co, p)
+                try:
+                    _, new_vert = bmesh.utils.edge_split(edge, vert_a, percent)
+                    new_verts.append(new_vert)
+                    vert_a = new_vert
+                except ValueError:
+                   pass
 
-            dir_len = (vert_other.co - vert.co).length_squared
+            if prev_cut_edge_verts:
+                for vert_a, vert_b in zip(new_verts, prev_cut_edge_verts):
+                    face = mesh.get_face_with_verts([vert_a, vert_b])
+                    
+                    if face is not None:
+                        bmesh.utils.face_split(face, vert_a, vert_b)
+                        if select_new_edges:
+                            e = bm.edges.get([vert_a, vert_b])
+                            if e is not None:
+                                e.select = True
+                                selected_edges.add(e)
+            prev_cut_edge_verts = new_verts.copy()
 
-            if dir_len < self.shortest_edge_len:
-                self.shortest_edge_len = dir_len
+            if i == 0 and num_segments >= 2 and edge.is_boundary:
+                prev_cut_edge_verts.reverse()
+
+            if self.is_loop:
+                if i == 0:
+                    split_verts_start = prev_cut_edge_verts.copy()
+                elif i == len(edges)-1:
+                    split_verts_end = prev_cut_edge_verts.copy()
             
-            vert_coords = None
-            if loop.edge.index == edge.index:
-                vert_coords = [vert.co.copy(), vert_other.co.copy()]
-          
-            if vert_coords is not None:
-                if flipped:
-                    vert_coords.reverse()
+            all_verts.update(prev_cut_edge_verts)
+
+        if self.is_loop:
+            for vert_a, vert_b in zip(split_verts_start, split_verts_end):
+                face = mesh.get_face_with_verts([vert_a, vert_b])
+                if face is not None:
+                    bmesh.utils.face_split(face, vert_a, vert_b)
+                    if select_new_edges:
+                        e = bm.edges.get([vert_a, vert_b])
+                        if e is not None:
+                            e.select = True
+                            selected_edges.add(e)
+
+        if bpy.context.tool_settings.use_mesh_automerge:
+            threshold = bpy.context.tool_settings.double_threshold
+            bmesh.ops.remove_doubles(bm, verts=list(all_verts), dist=threshold)
+
+        bm.select_flush_mode()
+        mesh_data = self.active_object.data
+        bmesh.update_edit_mesh(mesh_data)
+
+        return selected_edges if selected_edges else None
+
+# region - Old create geometry algo
+    # def create_geometry2(self, context, edges, points, edge_verts_co, num_segments, select_new_edges=True):
+    #     '''
+    #     Takes in a list of edges to subdivide, a list of points for each edge, and a list of the edge and original coords of the a/b verts for each edge.
+
+    #     '''
+
+    #     def divide_chunks(l, n):
+    #         for i in range(0, len(l), n): 
+    #             yield set(l[i:i + n])
+
+    #     def distance_sq(p1, p2):
+    #         return (p1 - p2).length_squared            
+
+    #     bm: BMesh = self.ensure_bmesh()
+
+        
+    #     uv_layer = bm.loops.layers.uv.verify()
+
+    #     ret = bmesh.ops.subdivide_edges(bm, edges=edges, cuts=num_segments, use_grid_fill=False)
+    #     geom_inner = ret["geom_inner"]
+    #     bm.verts.ensure_lookup_table()
+
+    #     inner_verts = []
+    #     if select_new_edges:
+    #         bpy.ops.mesh.select_all(action='DESELECT')
+
+    #     for elem in geom_inner:
+    #         if isinstance(elem, BMVert):
+    #             inner_verts.append(elem.index)
+    #             if select_new_edges:
+    #                 elem.select = True
+
+    #         elif isinstance(elem, BMEdge):
+    #             if select_new_edges:
+    #                 elem.select = True
+
+    #     chunks = list(divide_chunks(inner_verts, num_segments))        
+    #     edge_splits = defaultdict(list)
+    #     moved_verts = set()
+    #     for g, (vert_a, vert_b) in enumerate(edge_verts_co):
+    #         # vert_a = bm.verts[vert_a_idx]
+    #         # vert_b = bm.verts[vert_b_idx]
+    #         vec_a = vert_a.co
+    #         vec_b = vert_b.co
+    #         found_at = None
+    #         vert_set: set = set()
+    #         for i, vert_indices in enumerate(chunks):
+    #             vert_set = vert_indices.copy()
+    #             for vert_index in vert_indices:
+    #                 vert = bm.verts[vert_index]
+    #                 if utils.math.is_point_on_line_segment(vert.co, vec_a, vec_b):
+    #                     edge_splits[g].append(vert.index)
+    #                     vert_set.difference_update(set([vert.index]))
+    #                     found_at = i
+    #                     break
+    #             if found_at is not None:
+    #                 break
                 
-                self.edge_start_position = vert_coords[0]
-                self.edge_end_position = vert_coords[1]
+    #         if found_at is not None:
+    #             for vert_index in vert_set:
+    #                 edge_splits[g].append(vert_index)
+    #             del chunks[found_at]
 
-                _, percent = intersect_point_line(self.current_position, vert_coords[0], vert_coords[1])
+    #         vert_indices = edge_splits[g]
+    #         vert_indices.sort(key=lambda p :distance_sq(vec_a, bm.verts[p].co))
 
-                if self.is_classic or not self.insert_at_midpoint:
-                    self.offset = percent
-                else:
-                    self.offset = 0.5
+    #         if g == 0 and num_segments >= 2 and edges[g].is_boundary:
+    #             vert_indices.reverse()
 
-            ring_loops[loop] = None
 
-            if (loop.link_loop_radial_next.link_loop_next.link_loop_next.index == first_ring_edge.index) and not loop.edge.is_boundary:
-                found_loop = True
-            else:
-                found_loop = False
+    #         for i, vert_index in enumerate(vert_indices):
+    #             vert: BMVert = bm.verts[vert_index]
+    #             # if i != 0 and i != len(vert_indices)-1:
+    #             #     next_vert = bm.verts[vert_indices[i + 1]]
+    #             # else:
+    #             #     next_vert = vert_a if i == 0 else vert_b
 
-        self.distance = (self.current_position - self.edge_start_position).length
-        self.shortest_edge_len = self.shortest_edge_len ** 0.5
-        self.is_loop = found_loop
-        return ring_loops
 
+    #             points_along_edge = points[g]
+    #             if i < len(points_along_edge) and vert.index not in moved_verts:
+    #                 for loop in vert.link_loops:
+    #                     face = loop.face
+    #                     to_2d_coords_mat = utils.math.basis_mat_from_plane_normal(face.normal)
+    #                     vert_loop = utils.mesh.get_face_loop_for_vert(face, vert)
+    #                     coords_2d = (to_2d_coords_mat @ vert_loop.vert.co).to_2d()
+    #                     # print(f"vert: {vert_loop.vert.index} 2d_co before: {coords_2d}")
+    #                     # print(f"ovtehr vert: {vert_loop.edge.other_vert(vert_loop.vert).index}")
+                        
+    #                     vert_loop[uv_layer].uv = coords_2d
+
+    #                 vert.co = self.world_inv @ points_along_edge[i]
+    #                 moved_verts.add(vert.index) 
+
+    #     if bpy.context.tool_settings.use_mesh_automerge:
+    #         geom_split = ret["geom_split"]
+    #         verts_to_merge = {vert for edge in geom_split if isinstance(edge, BMEdge) for vert in edge.verts}
+    #         threshold = bpy.context.tool_settings.double_threshold
+    #         bmesh.ops.remove_doubles(bm, verts=list(verts_to_merge), dist=threshold)
+    #     mesh = context.active_object.data
+    #     bmesh.update_edit_mesh(mesh)
+#endregion
+
+    def update_loops(self, nearest_co= None):
+
+        if not self.active_object.bm.is_valid:
+            return False
+
+        self.is_loop = self.loop_data.get_is_loop()
+        return True
+
+
+    def exception_occured(self, context):
+        self.report({'ERROR'}, "Something went wrong. See console for more info.")
+        print_exc()
+        return self.cancel(context)
     
-    def select_edge_loop(self, context):
-        bpy.ops.mesh.select_all(action='DESELECT')
 
-        bm = self.ensure_bmesh()
-        bm.edges.ensure_lookup_table()
-        current_edge = bm.edges[self.current_edge_index]
-        for edge in utils.mesh.bmesh_edge_loop_walker(current_edge):
-            edge.select_set(True)
+    @staticmethod
+    def set_flow_enabled():
+        return common.prefs().set_edge_flow_enabled
 
-        mesh = context.active_object.data
-        bmesh.update_edit_mesh(mesh)
-
-    
-    def remove_edge_loop(self, context):
-
-        bm = self.ensure_bmesh()
-        bm.edges.ensure_lookup_table()
-        current_edge = bm.edges[self.current_edge_index]
-        dissolve_edges = list(utils.mesh.bmesh_edge_loop_walker(current_edge))
-
-        bmesh.ops.dissolve_edges(bm, edges=dissolve_edges, use_verts=True)
-        self.dirty_mesh = True
-        mesh = context.active_object.data
-        bmesh.update_edit_mesh(mesh)
-        
     @staticmethod
     def set_flow():
-        prefs = utils.common.prefs()
+        prefs = common.prefs()
         tension = prefs.tension
         iterations = prefs.iterations
         min_angle = prefs.min_angle
 
         bpy.ops.mesh.set_edge_flow('INVOKE_DEFAULT', tension=tension, iterations=iterations, min_angle=min_angle)
-        bpy.ops.mesh.select_all(action='DESELECT')
    
-
-    def ensure_bmesh(self):
-        if self.bm is None or not self.bm.is_valid:
-            bpy.context.active_object.update_from_editmode()
-            mesh = bpy.context.active_object.data
-            
-            self.bm: bmesh = bmesh.from_edit_mesh(mesh)
-
-        return self.bm
-        
+    @staticmethod
+    def ensure_bmesh_(edit_object_data):
+        obj: Object = edit_object_data.get_bl_object
+        bm = edit_object_data.bm
+        if bm is None or not bm.is_valid:
+            obj.update_from_editmode()
+            mesh = obj.data
+            edit_object_data.bm = bmesh.from_edit_mesh(mesh)
+        return edit_object_data.bm

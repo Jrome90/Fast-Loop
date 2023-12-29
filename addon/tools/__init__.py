@@ -1,9 +1,8 @@
 import bpy
 from . import fast_loop
-from . import fast_loop_classic
 
-tools = {   fast_loop_classic.FL_FastLoopClassic: ("builtin.poly_build", True, True),
-            fast_loop.FL_FastLoop: ("fl.fast_loop_classic_tool", False, False),
+tools = {
+            fast_loop.FL_FastLoop: ("builtin.poly_build", False, False),
         }
 
 def register():

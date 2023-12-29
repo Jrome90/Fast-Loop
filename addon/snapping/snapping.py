@@ -1,43 +1,49 @@
+from __future__ import annotations
+from typing import *
 from dataclasses import dataclass
+from collections import namedtuple
 from enum import IntFlag
-from math import isclose
+from math import fabs
 
 import bpy
 from bpy.types import Object
 import bmesh
 from bmesh.types import *
-from bpy_extras.view3d_utils import location_3d_to_region_2d
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
-from mathutils.geometry import intersect_point_line
 
 from .. import utils
 from . import snap_math
+from .snap_points import SnapPointsMixin
+from .snapping_utils import SnapEdgeParams, cb_snap_edge, do_raycast
+
 
 """ A partial adaptation of the object/mesh snapping code found in Blender's source code.
-    Currently ony supports snapping to edges in edit mode (single object at a time). Object mode is not supported.
-    The projected bouding box check found in snap math is not used and always returns True.
-    This is due to a bug that breaks the projected BB check when subsurface mod is active and edit mesh cage is enabled.
+    Currently ony supports snapping to edges in edit mode (single object or multiple objects). Object mode is not supported.
+    TODO: This has devolved into something more specific to Fast Loop's required functionality. 
+    Correct this laziness.
 """
 
 
 class GlobalSnapContext():
     snap_context = None
-
     @classmethod
     def del_snap_context(cls):
         if cls.snap_context is not None:
-            cls.snap_context.free()
+            cls.snap_context._free()
             cls.snap_context = None
 
 @dataclass
 class SnapObjectEditMeshData():
     min: int
     max: int
+    bl_object: Object = None
     is_dirty: bool = False
     bvh_tree: BVHTree = None
     object_matrix: Matrix = None
+    object_matrix_inv: Matrix = None
     bm: BMesh = None
+    name: str = ''
    
 
 class SNAPMODE(IntFlag):
@@ -46,63 +52,87 @@ class SNAPMODE(IntFlag):
     VERTEX = 4
     INCREMENT = 8
 
+@dataclass()
+class Nearest_2d():
+    face:BMFace = None
+    vert:BMVert = None
+    edge:BMEdge = None
+    vert_co: Vector = None
+    edge_co: Vector = None
+    edge_center_co = None
 
-class SnapContext():
+@dataclass()
+class Isect_Data():
+    isect_co: Vector = None
+    isect_normal: Vector = None
+    distance:float = None
+    face_index: int = None
 
-    def __init__(self, context, depsgraph, rv3d, region):
+Ray = namedtuple("Ray", "origin direction")
+SnapResults = namedtuple("SnapResults", "face_index element_index nearest_point")
+
+class SnapContext(SnapPointsMixin):
+
+    def __init__(self, context, depsgraph, owner, rv3d=None, region=None):
+        self.context = context
+        self.owning_object = owner
         self.depsgraph = depsgraph
         self.rv3d = rv3d
         self.region = region
         self.is_perpective = True
-        self.snap_objects = {}
-        self.mval = Vector((0.0, 0.0, 0.0))
+        self.snap_objects: dict[str, SnapObjectEditMeshData] = {}
+        self.mvals = Vector((0.0, 0.0, 0.0))
+        self.mvals_win = None
         self.proj_matrix = None
         self.MVP = None
+        self.ray: Ray = None
 
-        # Todo: Add a setting in preferences to change this value
-        self.radius = 30**2 * utils.ui.get_ui_scale()
+        self.points_2d = []
+
         self.win_size = Vector((region.width, region.height))
-        self.current_ray = None
-        self.loc = None
-        self.draw_snap_points = None
-        self.draw_mid_point = None
+        self._preselect_vertex_co = None
         # Hard code this to edge for now
         self.snap_flags = SNAPMODE.EDGE
-        self._is_snap_points_locked = False
-        self._snap_increment_divisions = 1
-        self._snap_factor = 0.5
-        self.increment_snap_points = []
+        self.nearest_2d = None
+        self._isect_data: Isect_Data = Isect_Data()
 
-        bpy.types.SpaceView3D.draw_handler_add(self._draw_callback_3d, (context, ), 'WINDOW', 'POST_VIEW')
+        self._draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self._draw_callback_3d, (context, ), 'WINDOW', 'POST_VIEW')
+        self._draw_handler_2d = bpy.types.SpaceView3D.draw_handler_add(self._draw_callback_2d, (context, ), 'WINDOW', 'POST_PIXEL')
         bpy.app.handlers.depsgraph_update_post.append(self._handler)
 
+        SnapPointsMixin.__init__(self)
+
     @staticmethod
-    def get(context, depsgraph, space, region):
+    def get(context, depsgraph, caller_object, space, region):
         if not getattr(GlobalSnapContext, 'snap_context', None):
             GlobalSnapContext.snap_context = SnapContext(
-                context, depsgraph, space.region_3d, region)
+                context, depsgraph, caller_object, space.region_3d, region)
 
         return GlobalSnapContext.snap_context
 
     @staticmethod
-    def remove():
+    def remove(caller_object):
         if getattr(GlobalSnapContext, 'snap_context', None):
-            GlobalSnapContext.del_snap_context()
-            return True
+            if GlobalSnapContext.snap_context.owning_object is caller_object:
+                GlobalSnapContext.del_snap_context()
+                return True
         return False
 
-    def free(self):
+    def _free(self):
         handler = object.__getattribute__(self, '_handler')
         bpy.app.handlers.depsgraph_update_post.remove(handler)
 
-        self.draw_snap_points = None
-        self.draw_mid_point = None
         if getattr(self, '_draw_handler_3d', False):
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(
                 self._draw_handler_3d, 'WINDOW')
 
+        if getattr(self, '_draw_handler_2d', False):
+            self._draw_handler_2d = bpy.types.SpaceView3D.draw_handler_remove(
+                self._draw_handler_2d, 'WINDOW')
+
     def increment_mode_active(self):
         return self.snap_flags & SNAPMODE.INCREMENT
+
 
     def enable_increment_mode(self):
         if not self.snap_flags & SNAPMODE.INCREMENT:
@@ -114,6 +144,23 @@ class SnapContext():
         if self.snap_flags & SNAPMODE.INCREMENT:
             self.snap_flags &= ~SNAPMODE.INCREMENT
             self.draw_snap_points = None
+            self._is_snap_points_locked = False
+            self._locked_snap_edge_points = None
+            self._locked_snap_edge_idx = None
+            self.draw_mid_point = None
+            self._increment_snap_points.clear()
+            return True
+        return False
+
+    def enable_vertex_sel_mode(self):
+        if not self.snap_flags & SNAPMODE.VERTEX:
+            self.snap_flags |= SNAPMODE.VERTEX
+            return True
+        return False
+
+    def disable_vertex_sel_mode(self):
+        if self.snap_flags & SNAPMODE.VERTEX:
+            self.snap_flags &= ~SNAPMODE.VERTEX
             return True
         return False
 
@@ -130,15 +177,40 @@ class SnapContext():
             raise ValueError("n value passed in must be >= 0.0 and <= 100.0")
 
     @property
+    def use_distance(self):
+        return self._use_distance
+        
+    @use_distance.setter
+    def use_distance(self, value):
+        self._use_distance = value
+
+    def set_snap_distance(self, distance: float):
+        self._snap_distance = fabs(distance)
+
+    @property
+    def auto_calc_snap_points(self):
+        return self._auto_calc_snap_points
+    @auto_calc_snap_points.setter
+    def auto_calc_snap_points(self, value):
+        self._auto_calc_snap_points = value
+      
+
+    @property
     def is_snap_points_locked(self):
         return self._is_snap_points_locked
+
+    # def get_intersection_data(self) -> Isect_Data:
+    #     return self._isect_data
 
     def lock_snap_points(self):
         self._is_snap_points_locked = True
 
     def unlock_snap_points(self):
         self._is_snap_points_locked = False
-        self.draw_snap_points = None
+        self._locked_snap_edge_points = None
+        self._locked_snap_edge_idx = None
+        self.draw_snap_points = []
+        self.draw_mid_point = None
 
 
     def _handler(self, scene, depsgraph):
@@ -151,257 +223,259 @@ class SnapContext():
                     self.snap_objects[update.id.name].is_dirty = True
 
 
-    def add_object(self, snap_object: Object):
+    def add_object(self, bl_object: Object):
 
-        if snap_object.name not in self.snap_objects:
+        if bl_object.name not in self.snap_objects:
             object_data = SnapObjectEditMeshData(
-                snap_object.bound_box[0], snap_object.bound_box[6])
-            object_data.object_matrix = snap_object.matrix_world
-            self.snap_objects[snap_object.name] = object_data
+                bl_object.bound_box[0], bl_object.bound_box[6], bl_object, name=bl_object.data.name)
+            object_data.object_matrix = bl_object.matrix_world
+            object_data.object_matrix_inv = bl_object.matrix_world.inverted_safe()
+            self.snap_objects[bl_object.name] = object_data
+            
 
-            if snap_object.mode == 'EDIT':
-                bm = bmesh.from_edit_mesh(snap_object.data)
+            if bl_object.mode == 'EDIT':
+                bm = bmesh.from_edit_mesh(bl_object.data)
                 object_data.bm = bm
-                object_data.bvh_tree = BVHTree.FromBMesh(bm, epsilon=0.001)
+                object_data.bvh_tree = BVHTree.FromBMesh(bm)
 
 
-    def _update_snap_object(self, snap_object):
-        if snap_object.name in self.snap_objects:
-            snap_object_data = self.snap_objects[snap_object.name]
+    def _update_snap_object(self, snap_object_data: SnapObjectEditMeshData):
+            bl_object = snap_object_data.bl_object
+            snap_object_data.object_matrix = bl_object.matrix_world
 
-            snap_object_data.object_matrix = snap_object.matrix_world
-
-            if snap_object.mode == 'EDIT':
-                bm = bmesh.from_edit_mesh(snap_object.data)
+            if bl_object.mode == 'EDIT':
+                bm = bmesh.from_edit_mesh(bl_object.data)
                 snap_object_data.bm = bm
                 snap_object_data.bvh_tree = BVHTree.FromBMesh(
-                    bm, epsilon=0.001)
-
-    def do_snap(self, mvals, object_=None):
-        inside_toolbar = utils.ui.inside_toolbar(mvals)
-        inside_npanel = utils.ui.inside_npanel(mvals)
-        inside_gizmo = utils.ui.inside_navigation_gizmo(mvals)
-        if inside_toolbar or inside_npanel or inside_gizmo:
-            return None, None
-
-        if object_ is None:
+                    bm)
+    
+    def _get_snap_object_by_name(self, name) -> SnapObjectEditMeshData:
+        if name in self.snap_objects:
+            return self.snap_objects[name]
+        return None
+    
+    def do_snap_objects(self, bl_objects, mvals, mvals_win=None) -> None | Tuple :
+        # inside_toolbar = utils.ui.inside_toolbar(mvals)
+        # inside_npanel = utils.ui.inside_npanel(mvals)
+        # inside_gizmo = utils.ui.inside_navigation_gizmo(mvals)
+        # if inside_toolbar or inside_npanel or inside_gizmo:
+        #     return None, None, None
+        if not bl_objects:
             pass
         else:
-            if object_.name in self.snap_objects:
+            try:
+                snap_objects = []
+                for bl_object in bl_objects:
 
-                snap_object_data = self.snap_objects[object_.name]
-                if snap_object_data.is_dirty:
-                    self._update_snap_object(object_)
-                    snap_object_data.is_dirty = False
+                    snap_object_data = self._get_snap_object_by_name(bl_object.name)
+                    if snap_object_data is None:
+                        continue
 
-                return self._snap_object(self.snap_objects[object_.name], mvals)
+                    if self._update_internal_data_for_object(snap_object_data):
+                        snap_objects.append(snap_object_data)
 
-        return None, None
+                if self.update_screen_data(mvals_win):
+                    return self._snap_objects(snap_objects)
+            # Something changed in Blender, so now we need to handle the case when the object we are referencing may no longer exist.
+            except ReferenceError:
+                raise
+
+        return None
+
+    def do_snap_object(self,bl_object: Object, mvals, mvals_win=None):
+        # inside_toolbar = utils.ui.inside_toolbar(mvals)
+        # inside_npanel = utils.ui.inside_npanel(mvals)
+        # inside_gizmo = utils.ui.inside_navigation_gizmo(mvals)
+        # if inside_toolbar or inside_npanel or inside_gizmo:
+        #     return None, None, None
+
+        if bl_object is None:
+            pass
+        else:
+            try:
+                snap_object_data = self._get_snap_object_by_name(bl_object.name)
+                if snap_object_data is not None and self._update_internal_data_for_object(snap_object_data):
+                    if self.update_screen_data(mvals_win):
+                        snap_object = snap_object_data
+                        return self._snap_object(snap_object)
+            # Something changed in Blender 4.x. Now we need to handle the case when the object we are referencing may no longer exist.
+            except ReferenceError:
+                raise
+
+        return None, None, None
+
+
+    def update_screen_data(self, mvals_win)-> bool:
+        self.region, self.win_size, self.rv3d, self.is_perpective = utils.ui.get_screen_data_for_3d_view(self.context, mvals_win)
+        if not all((self.region, self.win_size, self.rv3d)):
+            return False
+        
+        self.mvals = Vector((mvals_win[0] - self.region.x , mvals_win[1] - self.region.y)) if self.region is not None else Vector((0.0, 0.0))
+        self.mvals_win = mvals_win
+        self.proj_matrix = self.rv3d.perspective_matrix.copy() if self.rv3d is not None else None
+        return True
+    
+
+    def _update_internal_data_for_object(self, snap_object_data: SnapObjectEditMeshData)-> bool:
+        if snap_object_data.bm is None or snap_object_data.bvh_tree is None:
+            #TODO Remove from snap objects
+            return False
+
+        if snap_object_data.is_dirty:
+            self._update_snap_object(snap_object_data)
+            snap_object_data.is_dirty = False
+        return True
     
 
     def _draw_callback_3d(self, context):
-        if self.loc is not None:
-            utils.drawing.draw_points([self.loc])
-            self.loc = None
+        SnapPointsMixin.draw_callback_3d(self, context)
+    
 
-        if self.draw_snap_points is not None:
-            utils.drawing.draw_points(self.draw_snap_points)
+    def _draw_callback_2d(self, context):
+        # def box_intersect(a, b, size_a, size_b):
+        #     a_width, a_height = size_a
+        #     b_width, b_height = size_b
 
-        if self.draw_mid_point is not None:
-            utils.drawing.draw_point(self.draw_mid_point, size=6.0)
+        #     return (abs(a.x - b.x) * 2 < (a_width + b_width)) and (abs(a.y - b.y) * 2 < (a_height + b_height))
+        if self.points_2d:
+            utils.draw_2d.draw_points(self.points_2d)
+            self.points_2d.clear()
+            
+        SnapPointsMixin.draw_callback_2d(self, context)
+    
 
-            if not self.is_snap_points_locked:
-                self.draw_snap_points = None
-                self.draw_mid_point = None
-                
+    def _snap_object(self, snap_object:SnapObjectEditMeshData):
 
-    def _snap_object(self, snap_object, mvals):
         ray_origin, ray_vector = utils.raycast.get_ray(
-            self.region, self.rv3d, mvals)
-        mat_inv = snap_object.object_matrix.inverted_safe()
-        ray_orig_local = mat_inv @ ray_origin
-        ray_dir_local = mat_inv.to_3x3() @ ray_vector
+            self.region, self.rv3d, self.mvals)
+        
+        # for snap_object in snap_objects:
 
-        self.current_ray = [ray_orig_local, ray_dir_local]
-        self.proj_matrix = self.rv3d.perspective_matrix.copy()
-        self.is_perpective = self.rv3d.is_perspective
-
+        mat_inv = snap_object.object_matrix_inv
+        self.ray = Ray(mat_inv @ ray_origin, mat_inv.to_3x3() @ ray_vector)
         self.MVP = self.proj_matrix @ snap_object.object_matrix
 
-        self.mval = Vector(mvals)
+        isect_co = None
+        face = None
 
-        #if snap_math.snap_bound_box_check_dist(snap_object.min, snap_object.max, self.MVP, self.win_size, self.mval, self.radius, (ray_orig_local, ray_dir_local)):
-        ray_co, _, index, _ = snap_object.bvh_tree.ray_cast(
-            ray_orig_local, ray_dir_local)
+        if snap_math.snap_bound_box_check_dist(snap_object.min, snap_object.max, self.MVP, self.win_size, self.mvals, self.radius, self.ray):
+            ray_cast_results = do_raycast(snap_object, self.ray.origin, self.ray.direction)
 
-        nearest_loc = None
-        element_index = None
-        if index is not None:
-
-            if snap_object.bm.is_valid:
-                bm: BMesh = snap_object.bm
-                if self.snap_flags & SNAPMODE.EDGE:
-                    bm.faces.ensure_lookup_table()
-
-                    shortest_dist = float('INF')
-                    try:
-                        face = bm.faces[index]
-                    except IndexError:
-                        return None, None
-
-                    if face.hide == True:
-                        return None, None
-
-                    for loop in utils.mesh.bmesh_face_loop_walker(face):
-                        edge = loop.edge
-                        edge_index = edge.index
-
-                        nearest_co, percent = self._cb_snap_edge(
-                            edge_index)
-
-                        if nearest_co is not None:
-                            nearest_co = snap_object.object_matrix @ nearest_co
-                            ray_coo = snap_object.object_matrix @ ray_co
-                            dist = (nearest_co - ray_coo).length_squared
-
-                            if dist < shortest_dist:
-                                shortest_dist = dist
-                                nearest_loc = nearest_co
-                                element_index = edge_index
-
-                    if element_index is not None and (self.snap_flags & SNAPMODE.EDGE and self.snap_flags & SNAPMODE.INCREMENT):
-                        if not self.is_snap_points_locked or self.draw_snap_points is None:
-                            self._calc_snap_edge_increments(element_index)
-                       
-                        if self._snap_increment_divisions > 1:
-                            shortest_dist = float('INF')
-                            for point in self.increment_snap_points:
-                                point_2d = location_3d_to_region_2d(
-                                    self.region, self.rv3d, point)
-
-                                dist = (point_2d - self.mval).length_squared
-
-                                if dist < self.radius and dist < shortest_dist:
-                                    shortest_dist = dist
-                                    nearest_loc = point
-                        else:
-                            nearest_loc = self.increment_snap_points[0]
-
-                    elif self.snap_flags & SNAPMODE.EDGE and not self.snap_flags & SNAPMODE.INCREMENT:
-                        self.draw_snap_points = None
-
-                    return element_index, nearest_loc
-        else:
-            return None, None
-
-        return None, None
-
-
-    def _calc_snap_edge_increments(self, index):
-        snap_object = list(self.snap_objects.values())[0]
-        bm = snap_object.bm
-        bm.edges.ensure_lookup_table()
-        edge: BMEdge = bm.edges[index]
-
-        va_co = edge.verts[0].co
-        vb_co = edge.other_vert(edge.verts[0]).co
-        self.draw_snap_points = []
-        n = self._snap_increment_divisions
-        self.increment_snap_points.clear()
-        if n > 1:
-            for i in range(n):
-                percent = ((1.0 + i) / (n + 1.0))
-                position = snap_object.object_matrix @ va_co.lerp(vb_co, percent)
-
-                self.increment_snap_points.append(position)
-
-                if n % 2 != 0 and isclose(percent, 0.5):
-                    self.draw_mid_point = snap_object.object_matrix @ va_co.lerp(
-                        vb_co, 0.5)
-                else:
-                    self.draw_snap_points.append(position)
-        else:
-            position = snap_object.object_matrix @ va_co.lerp(vb_co, self._snap_factor)
-            self.increment_snap_points.append(position)
-            self.draw_snap_points.append(position)
-
-
-    def _cb_snap_edge(self, index):
-        current_object = list(self.snap_objects.values())[0]
-        bm = current_object.bm
-        bm.edges.ensure_lookup_table()
-        edge: BMEdge = bm.edges[index]
-        va_co = edge.verts[0].co
-        vb_co = edge.other_vert(edge.verts[0]).co
-
-        nearest_co = self._test_projected_edge_dist(
-            (va_co, vb_co), *self.current_ray)
-        if nearest_co is not None:
-            _, perc = intersect_point_line(nearest_co, va_co, vb_co)
-            if perc < 0.0:
-                return va_co, 0.0
-            elif perc > 1.0:
-                return vb_co, 1.0
-            elif 0.0 < perc < 1.0:
-                return va_co.lerp(vb_co, perc), perc
-
-        return None, None
-
-
-    def _test_projected_edge_dist(self, verts_co, ray_origin, ray_direction):
-        current_object = list(self.snap_objects.values())[0]
-        va_co = verts_co[0]
-        vb_co = verts_co[1]
-
-        intersects, lambda_ = snap_math.isect_ray_line_v3(
-            va_co, vb_co, ray_direction, ray_origin)
-        near_co = Vector()
-
-        if not intersects:
-            near_co = va_co.copy()
-        else:
-            if lambda_ <= 0.0:
-                near_co = va_co.copy()
-            elif lambda_ >= 1.0:
-                near_co = vb_co.copy()
+            #------
+            if ray_cast_results is not None and snap_object.bm.is_valid:
+                return self.do_some_stuff(snap_object, face, isect_co)
             else:
-                near_co = va_co.lerp(vb_co, lambda_)
-
-            if self._test_projected_vert_dist(near_co, self.radius):
-                return near_co
+                # TODO: Remove 
+                self._preselect_vertex_co = None
+                self.draw_snap_indicator = False
+            
         return None
 
+    def _snap_objects(self, snap_objects) -> None | Tuple:
 
-    def _test_projected_vert_dist(self, co, dist_px_sq):
+        ray_origin, ray_vector = utils.raycast.get_ray(
+            self.region, self.rv3d, self.mvals)
+        
+        shortest_dist = float('INF')
+        closest_ray_cast_result: None | Tuple = None
+        for snap_object in snap_objects:
+            mat_inv = snap_object.object_matrix_inv
+            ray = Ray(mat_inv @ ray_origin, mat_inv.to_3x3() @ ray_vector)
+            MVP = self.proj_matrix @ snap_object.object_matrix
 
-        win_half = self.win_size * 0.5
-        mvals = self.mval - win_half
-        current_object = list(self.snap_objects.values())[0]
-        co = current_object.object_matrix @ co
+            if snap_math.snap_bound_box_check_dist(snap_object.min, snap_object.max, MVP, self.win_size, self.mvals, self.radius, ray):
+                ray_cast_results = do_raycast(snap_object, ray.origin, ray.direction)
+                
+                if ray_cast_results is not None and ray_cast_results[2] < shortest_dist:
+                    distance = ray_cast_results[2]
+                    shortest_dist = distance
+                    isect_co = ray_cast_results[0]
+                    face = ray_cast_results[1]
+                    closest_ray_cast_result = (snap_object, face, isect_co)
+                    self.ray = Ray(mat_inv @ ray_origin, mat_inv.to_3x3() @ ray_vector)
+                    self.MVP = self.proj_matrix @ snap_object.object_matrix
 
-        proj_mat = self.proj_matrix.copy()
+        if closest_ray_cast_result is not None and snap_object.bm.is_valid:
+            snap_results = self.do_some_stuff(*closest_ray_cast_result)
+            return None if snap_results is None else (*snap_results, closest_ray_cast_result[0].bl_object)
+        else:
+            # TODO: Remove
+            self._preselect_vertex_co = None
+            self.draw_snap_indicator = False
+            
+        return None
 
-        for i in range(4):
+    
+    #TODO: Use a better name
+    # What does this function do?
+    # Gets the nearest element (in this case edge) and then calls 
+    # method to deal with snap points if snapping is enabled, otherwise 
+    # just use the nearest location 
+    def do_some_stuff(self, snap_object, face, isect_co) -> None| Tuple:
 
-            proj_mat.col[i][0] *= win_half[0]
-            proj_mat.col[i][1] *= win_half[1]
+        if self.snap_flags & SNAPMODE.EDGE:
+            nearest_2d: Nearest_2d = Nearest_2d()
+            nearest_2d.face = face
+            if self.get_nearest_element(snap_object, isect_co, face, self.snap_flags, nearest_2d):
+                self.nearest_2d = nearest_2d
+                nearest_point = nearest_2d.edge_co
+                element_index = nearest_2d.edge.index
+                   
+                if self.snap_flags & SNAPMODE.INCREMENT:
+                    element_index, nearest_point = self.get_nearest_snap_point(snap_object, nearest_2d)
 
-        pro_mat = proj_mat.to_3x3()
+                return SnapResults(face.index, element_index, nearest_point)
 
-        row_x = pro_mat.row[0]
-        row_y = pro_mat.row[1]
+        self.nearest_2d = None
+        return None
 
-        co_2d = Vector((
-            row_x.dot(co) + proj_mat.col[3][0],
-            row_y.dot(co) + proj_mat.col[3][1]
-        ))
+    def get_nearest_element(self, snap_object, ray_co, face, snap_elements_flag, nearest_2d):
+        shortest_dist_edge = float('INF')
+        ray_coo = snap_object.object_matrix @ ray_co
+        for loop in utils.mesh.bmesh_face_loop_walker(face):
+            nearest_co = None
+            edge = loop.edge
+            if snap_elements_flag & SNAPMODE.EDGE:
+                edge_params = SnapEdgeParams()
+                edge_params.is_perpective = self.is_perpective
+                edge_params.snap_object = snap_object
+                edge_params.edge_index =  edge.index
+                edge_params.ray_origin = self.ray.origin
+                edge_params.ray_direction = self.ray.direction
+                edge_params.radius = self.radius
+                edge_params.proj_matrix = self.proj_matrix.copy()
+                edge_params.win_size = self.win_size
+                edge_params.mval = self.mvals
 
-        if self.is_perpective:
-            w = (proj_mat.col[0][3] * co[0]) + (proj_mat.col[1][3] *
-                                                co[1]) + (proj_mat.col[2][3] * co[2]) + proj_mat.col[3][3]
-            co_2d /= w
-        dist_sq = (mvals - co_2d).length
+                results = cb_snap_edge(edge_params)
 
-        if dist_sq < dist_px_sq:
-            return True
-        return False
+                if results is not None:
+                    nearest_co, _ = results
+                    nearest_co = snap_object.object_matrix @ nearest_co
+                    dist = (nearest_co - ray_coo).length_squared
+
+                    if dist < shortest_dist_edge:
+                        shortest_dist_edge = dist
+                        nearest_2d.edge = edge
+                        nearest_2d.edge_co = nearest_co
+
+        if nearest_2d.edge is not None:
+            shortest_dist_vert = float('INF')
+            for vert in nearest_2d.edge.verts:
+                nearest_co = snap_object.object_matrix @ vert.co
+                dist = (nearest_co - ray_coo).length_squared
+
+                if dist < shortest_dist_vert:
+                    shortest_dist_vert = dist
+                    nearest_2d.vert = vert
+                    nearest_2d.vert_co = nearest_co
+                
+        return True if (nearest_2d.vert is not None and nearest_2d.edge is not None) else False
+
+
+    def force_display_update(self, object_):
+        nearest_2d = self.nearest_2d
+        if nearest_2d is not None:
+            snap_object_data = self._get_snap_object_by_name(object_.name)
+            self._increment_snap_points, self._increment_snap_point_dist = self.calc_snap_edge_increments(snap_object_data, nearest_2d, self.region, self.rv3d)
+            self.draw_snap_points = self.calculate_incremental_lines(snap_object_data, self._increment_snap_points, nearest_2d.edge, nearest_2d.face)

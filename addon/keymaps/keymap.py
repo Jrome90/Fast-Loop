@@ -11,3 +11,5 @@ def register(keyconfig):
     keymap.keymap_items.new('fl.fast_loop', 'INSERT', 'PRESS', alt=True, repeat=False)
     keymap.keymap_items.new('fl.fast_loop_classic', 'INSERT', 'PRESS', repeat=False)
     keymap.keymap_items.new('fl.edge_slide', 'ACCENT_GRAVE', 'PRESS', alt=True, repeat=False)
+    keymap.keymap_items.new('fl.edge_contraint_translation', 'SLASH', 'PRESS', alt=True, repeat=False)
+    keymap.keymap_items.new('fl.loop_slice', 'SLASH', 'PRESS', shift=True, repeat=False)
