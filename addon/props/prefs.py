@@ -255,7 +255,6 @@ class AddonPrefs(bpy.types.AddonPreferences):
     
     tension : bpy.props.IntProperty(
         name="Tension",
-        name="Tension",
         default=180, 
         min=-500, 
         max=500
