@@ -77,16 +77,21 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
                     selected_edges = self.context.create_geometry(select_new_edges=True)
                     try:
                         self.context.set_flow()
-                    except:
-                        self.context.report({'ERROR'}, 'Edge Flow addon was not found. Please install and activate it.')
-                    finally:
-                        for e in selected_edges:
-                            e.select = False
                         active_object = self.context.active_object
-                        active_object.bm.select_flush_mode()
-                        mesh_data = active_object.data
-                        bmesh.update_edit_mesh(mesh_data)
+                        if prefs().get_edge_flow_version() == (0,8):
+                            if active_object.bm.is_valid:
+                                for edge in selected_edges:
+                                    edge.select = False
+
+                                active_object.bm.select_flush_mode()
+                                mesh_data = active_object.data
+                                bmesh.update_edit_mesh(mesh_data)
+
+                        self.context.ensure_bmesh_(active_object)
                         bpy.ops.ed.undo_push(message="Insert Loop With Set Flow")
+                        
+                    except AttributeError:
+                        self.context.report({'ERROR'}, 'Edge Flow addon was not found. Please install and activate it.')
 
                 handled = True
 

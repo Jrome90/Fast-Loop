@@ -1,3 +1,6 @@
+from typing import Tuple
+
+import addon_utils
 import bpy
 
 from bpy.app.translations import contexts as i18n_contexts
@@ -458,3 +461,11 @@ class AddonPrefs(bpy.types.AddonPreferences):
             op = row.operator("ui.keymap_input_operator", text=(f"{getattr(wm.keymap_strings, action)}").capitalize())
             op.active_keymap = action
             op.operator = "FL_OT_fast_loop"
+    
+    @staticmethod
+    def get_edge_flow_version()-> Tuple:
+        enabled_addons = {addon.module for addon in bpy.context.preferences.addons}
+        for addon in addon_utils.modules():
+            if addon.__name__ in enabled_addons and addon.__name__ in {'EdgeFlow'}:
+                return addon.bl_info['version']
+        return None

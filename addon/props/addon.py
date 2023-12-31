@@ -643,4 +643,3 @@ class ModalKeymapDisplay(bpy.types.PropertyGroup):
                             hotkey = utils.ui.append_modifier_keys(key[0], key[2], key[3], key[4])
                             setattr(self, attribute, hotkey)
                             break
-        
