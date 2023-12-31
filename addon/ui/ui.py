@@ -30,18 +30,20 @@ class DrawFastLoopUI():
             b = box.box()
             col = b.column()
             col.prop(options, "loop_position_override" , toggle=True, text="Position Override", icon='SHADERFX')
-
+            
+            pos_override_col = b.column()
+            pos_override_col.enabled = True if options.loop_position_override else False
             prefs = utils.common.prefs()
-            col.prop(prefs, "interpolation_type")
+            pos_override_col.prop(prefs, "interpolation_type")
 
-            col.operator("ui.overrride_reset", text="Reset", icon='FILE_REFRESH')
-            col.label(text="Loop Postitions")
+            pos_override_col.operator("ui.overrride_reset", text="Reset", icon='FILE_REFRESH')
+            pos_override_col.label(text="Loop Postitions")
             
             window_manager = context.window_manager
             if len(window_manager.Loop_Cut_Slots.loop_cut_slots) > 0:
                 index = window_manager.Loop_Cut_Lookup_Index
                 lc_slot = window_manager.Loop_Cut_Slots.loop_cut_slots[index]
-                col.template_list("FL_UL_Percentages", "", lc_slot, "loop_cut_slot", window_manager, "Loop_Cut_Slots_Index")
+                pos_override_col.template_list("FL_UL_Percentages", "", lc_slot, "loop_cut_slot", window_manager, "Loop_Cut_Slots_Index")
 
             box = layout.split()
 
@@ -56,11 +58,11 @@ class DrawFastLoopUI():
                 col.prop(options, "snap_divisions", slider=True)
 
                 col.prop(options, "use_distance")
-                split_col = b.column()
-                split_col.enabled = True if options.use_distance else False
-                split_col.prop(options, "auto_segment_count")
-                split_col.prop(options, "snap_distance")
-                split_col.prop(options, "use_opposite_snap_dist", toggle=True)
+                use_dist_col = b.column()
+                use_dist_col.enabled = True if options.use_distance else False
+                use_dist_col.prop(options, "auto_segment_count")
+                use_dist_col.prop(options, "snap_distance")
+                use_dist_col.prop(options, "use_opposite_snap_dist", toggle=True)
 
                 col = b.row(align=True)
                 col.prop(options, "snap_left", toggle=True, text="Left")
