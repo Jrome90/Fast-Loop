@@ -281,13 +281,13 @@ class AddonPrefs(bpy.types.AddonPreferences):
     keymap_error: bpy.props.StringProperty(name="Keymap Error")
 
     kilometers: bpy.props.BoolProperty(name="Kilometers")
-    meters: bpy.props.BoolProperty(name="Meters")
+    meters: bpy.props.BoolProperty(name="Meters", default=True)
     centimeters: bpy.props.BoolProperty(name="Centimeters")
     millimeters: bpy.props.BoolProperty(name="Millimeters")
     micrometers: bpy.props.BoolProperty(name="Micrometers")
 
     miles: bpy.props.BoolProperty(name="Miles")
-    feet: bpy.props.BoolProperty(name="Feet")
+    feet: bpy.props.BoolProperty(name="Feet", default=True)
     inches: bpy.props.BoolProperty(name="Inches")
     thou: bpy.props.BoolProperty(name="Thou")
 

@@ -378,6 +378,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
                 self.current_action.update()
                 self.update_slider()
+        
 
 
     def calculate_scale_value(self):
@@ -606,15 +607,13 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         arrow_b = draw_3d.Arrow(start,  vert_b2_world - (vert_b2_world - vert_c_world).normalized() * edge_offset, -normal, math.rotate_direction_vec(vec_b.normalized(), self.world_mat), distance_along_edge*0.25)
 
         distance = (loop_a.vert.co - position_local).length
-        pr = 2
-        fmt = "%1." + str(pr) + "f"
-        distance_str = ui.format_distance(fmt, "1", distance)
+        distance_str = ui.format_distance2(distance)
 
         arrow_a.label_text = distance_str
         self.draw_direction_arrow_lines.append(arrow_a)
 
         distance = (loop_a.edge.other_vert(loop_a.vert).co - position_local).length
-        distance_str = ui.format_distance(fmt, "1", distance)
+        distance_str = ui.format_distance2(distance)
         arrow_b.label_text = distance_str
         self.draw_direction_arrow_lines.append(arrow_b)
 

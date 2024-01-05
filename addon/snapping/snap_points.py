@@ -273,9 +273,9 @@ class SnapPointsMixin():
                 if utils.ops.options().use_opposite_snap_dist and not use_center:
                     start_tmp = end
 
-                pr = 2
-                fmt = "%1." + str(pr) + "f"
-                text = utils.ui.format_distance(fmt, "1", (position - start_tmp).length)
+                #pr = 2
+                #fmt = "%1." + str(pr) + "f"
+                text = utils.ui.format_distance2((position - start_tmp).length) #format_distance(fmt, "1", (position - start_tmp).length)
                 i += 1 if use_center or not self._use_distance else 0
                 snap_point_text[i] = text
               
