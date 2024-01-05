@@ -115,35 +115,28 @@ class Event_Handler():
 
         return None
 
-    # Regex: (?P<val>[0-9,./]+)(?P<unit>mm|cm|m|)(?:'s|s)?\b
     def _handle_complex_numeric_input(self, event):
         changed = False
         unit_value_pairs = []
         valid_input = False
         # print(f"Event: type: {event.type} ascii: {event.ascii}")
-        if str.isnumeric(event.ascii) or event.type in {'C', 'M', 'F', 'T', 'I', 'N', 'H', 'O', 'U', 'QUOTE','PERIOD', 'COMMA', 'SPACE', 'SLASH', 'P', 'NUMPAD_SLASH', 'NUMPAD_PERIOD'}:
-        #or event.type in num_pad_to_value_str:
-
-            # if event.type in num_pad_to_value_str:  
-            #     self._numeric_value += num_pad_to_value_str[event.type]
-            # else:
+        if str.isnumeric(event.ascii) or event.type in {'C', 'M', 'F', 'T', 'I', 'N', 'H', 'O', 'U', 'QUOTE','PERIOD', 'COMMA', 'SPACE', 'SLASH', 'P', 'NUMPAD_SLASH', 'NUMPAD_PERIOD', 'QUOTE'}\
+        or event.ascii in {"\""}: 
+            
             self._numeric_value += event.ascii
             for pattern in [self._percent_pattern, self._imperial_pattern, self._metric_pattern]:
                 unit_value_pairs, valid_input = self.parse_numeric_input_str(self._numeric_value, pattern)
                 if valid_input:
                     changed = True
                     break
-                
             else:
                 changed = True
-
                 if not valid_input:
                     unit, val = unit_value_pairs[0]
                     if val is not None and unit is None:
                         valid_input = True
                         default_unit = get_default_unitless_typing()
                         unit_value_pairs = [(default_unit, val)]
-
             
         elif event.type == 'BACK_SPACE' and event.value == 'PRESS':
             self._numeric_value = self._numeric_value[:-1]
@@ -162,9 +155,7 @@ class Event_Handler():
                         valid_input = True
                         default_unit = get_default_unitless_typing()
                         unit_value_pairs = [(default_unit, val)]
-
         else:
-
             key = event.type
             if key in self._numeric_input_done_keys:
                 keymapping = (key, event.value, event.ctrl, event.shift, event.alt)
@@ -193,7 +184,6 @@ class Event_Handler():
         return None
 
     def parse_numeric_input_str(self, input_string, pattern):
-        # print(input_string)
         unit_value_pairs = []
         valid_input = True
         matches = pattern.finditer(input_string)
@@ -202,7 +192,6 @@ class Event_Handler():
         for match in matches:
             try:
                 unit, val = match.group("unit", "val")
-                # print(f"unit:{unit}, val:{val} pat: {pattern}" )
                 if val is None or unit is None:
                     valid_input = False
                 
@@ -276,9 +265,9 @@ def convert_unit_value_pairs(unit_value_pairs) -> float:
             length += mm_to_meters(value_str_to_float(value))
         elif unit.lower() == "p":
             return value_str_to_float(value), False
-        elif unit.lower() == "ft":
+        elif unit.lower() in {"ft", "\'"}:
             length += value_str_to_float(value) * 0.304800
-        elif unit.lower() == "in":
+        elif unit.lower() in {"in", "\""}:
             length += value_str_to_float(value) * 0.0254
         elif unit.lower() == "thou":
          length += value_str_to_float(value) * 0.0000254
