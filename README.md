@@ -1,7 +1,7 @@
 Shout-out to Hologram from the BA forums for feedback and taking time to test the addon.
 Rename the addon folder to Fast Loop. If you don't blender will error when enabling.
 
-## Fast Loop
+## Fast Loop 2.0
 **Added**  
 * New sub mode to insert Vertices on edges.  
  <kbd>v</kbd> to enable.
@@ -83,7 +83,7 @@ Fast Loop now works in 3d viewports other than the one the tool was invoked in. 
   * Works with active and nearest snap settings
 
 **Known Issues**  
-*If you enable snapping, and then disable it by releasing <kbd>ctrl</kbd>, the position of the mouse and vertices' will most likely desync. This should not affect the useability.
+* If you enable snapping, and then disable it by releasing <kbd>ctrl</kbd>, the position of the mouse and vertices' will most likely desync. This should not affect the useability.
 
 ### Requires the Edge Flow addon:
 https://github.com/BenjaminSauder/EdgeFlow
