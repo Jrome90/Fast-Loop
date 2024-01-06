@@ -3,6 +3,7 @@ Rename the addon folder to Fast Loop. If you don't blender will error when enabl
 
 ## Fast Loop 
 **Added**
+
 New sub mode to insert Vertices on edges.
 <kbd>v</kbd> to enable.
 New sub mode to use selected edges to guide the loop's direction.
@@ -24,16 +25,19 @@ Some examples of the input that can be used:
 * 10p (where p is a replacement for %)
 
 **Removed**
+
 Select Loop (Ctrl + Click)
 Midpoint sub mode
 
 **Fixed**
+
 Loop preview updates correctly when increase/decrease loop count is mapped to the mouse wheel.
 Fixed issues when scene unit scale is anything other than one.
 Better support for industry compatible keymap. (Enable in the addon preferences)
 
 #### UI/UX
 **Added**
+
 Draggable panel display in the viewport.
 Added a bar to display the distances between edges. 
 * Display settings can be changed using the HUD settings pop up menu.
@@ -42,6 +46,7 @@ Added a bar to display the distances between edges.
 Works in 3d viewport areas other than just the one the tool/operator was invoked in. (Quad view not supported)
 
 **Removed**
+
 Operator panel in the N panel. 
 Pie menu
 Preference option to swap right and left click functionality. 
@@ -49,6 +54,7 @@ Preference option to swap right and left click functionality.
 
 #### Incremental Snapping:
 **Added**
+
 Option to use a distance value to set the space between snap points. 
 *  Tick the use distance checkbox and set a distance to use in the distance input field.
 * The Auto option calculates the number of segments to use, based on the distance used.
@@ -61,25 +67,29 @@ Option to use a distance value to set the space between snap points.
 ## Edge Slide
 #### UI/UX
 **Added**
+
 Draggable panel display in the viewport.
 Highlight the edge closest to the mouse.
 
 **Removed**
+
 Integration of edge constrained translation. 
 * It's now its own operator.
 
 ## Edge Constrained Translation:
 **How To Use**
+
 1. Select vertices then activate the operator.
 2. Hover the mouse near a vertex. A representation of the axes of the current coordinate system will appear.
 3. Press <kbd>X</kbd>(red), <kbd>Y</kbd>(green), or <kbd>Z</kbd>(blue) to select the corresponding axis to slide along.
 
 **Added**
+
 Hold <kbd>ctrl</kbd> to snap the postition to either vertices, edges, or the midpoint of edges. (Uses blender snap settings for element types)
 * Works with active and nearest snap settings
 **Known Issues**
+  
 If you enable snapping, and then disable it by releasing <kbd>ctrl</kbd>, the position of the mouse and vertices' will most likely desync. This should not affect the useability.
-
 
 ### Requires the Edge Flow addon:
 https://github.com/BenjaminSauder/EdgeFlow
