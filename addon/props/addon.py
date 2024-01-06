@@ -361,7 +361,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
 
     snap_divisions: bpy.props.IntProperty(
         name='Snap Divisions',
-        description='Number of snap point divisions',
+        description='Number of snap point divisions. \n Min:1 Max:100',
         default=1,
         soft_max=10,
         min=1,
@@ -382,7 +382,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     snap_distance: bpy.props.FloatProperty(
         name='Distance',
         description='Distance between snap points',
-        default=0.0273, 
+        default=0.5, 
         min=0.001,
         subtype='DISTANCE',
         unit='LENGTH',
@@ -392,7 +392,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
 
     use_opposite_snap_dist: bpy.props.BoolProperty(
         name='Use Opposite Snap Distance',
-        description='Calculate snap distance from the opposite end.',
+        description='Calculate snap distance from the opposite end.\n Shortcut: ]',
         default=False,
     )
 

@@ -684,7 +684,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             
             percent = math.inv_lerp(start_pos, end_pos, self.edge_data.first_edge.points[0])
 
-            if percent > 0.5 and not self.loop_position_override:
+            if self.common_props.mirrored and percent > 0.5 and not self.loop_position_override:
                 start_pos, end_pos = end_pos, start_pos
 
             distance_values = [(points_on_edge[index_a] - start_pos).length]

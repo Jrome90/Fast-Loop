@@ -405,6 +405,7 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     @staticmethod
     def ensure_bmesh_(edit_object_data):
         obj: Object = edit_object_data.get_bl_object
+
         bm = edit_object_data.bm
         if bm is None or not bm.is_valid:
             obj.update_from_editmode()

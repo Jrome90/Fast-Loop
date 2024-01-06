@@ -54,7 +54,7 @@ class DrawFastLoopUI():
 
             if options is not None:
                 col.prop(options, "use_snap_points", toggle=True, text="Toggle Snap Points", icon='SNAP_INCREMENT')
-                col.prop(options, "lock_snap_points", toggle=True, text="Unlock Points" if options.lock_snap_points else "Lock Points", icon='LOCKED' if options.lock_snap_points else 'UNLOCKED')
+                col.prop(options, "lock_snap_points", toggle=True, text="Unlock Snap Points" if options.lock_snap_points else "Lock Points", icon='LOCKED' if options.lock_snap_points else 'UNLOCKED')
                 col.prop(options, "snap_divisions", slider=True)
 
                 col.prop(options, "use_distance")

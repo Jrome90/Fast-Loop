@@ -34,7 +34,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
         ],
     default="GENERAL")
 
-    use_spacebar: bpy.props.BoolProperty(name="Enable Industry Compatible Keymap Support", default=False, description="Enabling this switches alt(press) -> to spacebar(toggle) for edge slide.")
+    use_spacebar: bpy.props.BoolProperty(name="Enable Industry Compatible Keymap Support", default=False, description="Enabling this switches alt(press) -> to spacebar(toggle) to activate edge slide")
     occlude_lines: bpy.props.BoolProperty(name="Don't draw lines behind geometry", default=False, description="Don't draw lines if they are behind geometry.")
     occlude_points: bpy.props.BoolProperty(name="Don't draw points behind geometry", default=False, description="Don't draw points if they are behind geometry.")
     draw_loop_vertices: bpy.props.BoolProperty(name="Draw vertices of the loop preview", default=False, description="Draw the vertices of the loop preview.")
@@ -416,14 +416,14 @@ class AddonPrefs(bpy.types.AddonPreferences):
             self.generate_modal_keymap_ui(context, key_map, modal_keymap_box)
       
         layout.operator("ui.save_keymap_operator", text="Save modal keymap preferences")
-        kc = wm.keyconfigs.user
+        # kc = wm.keyconfigs.user
 
-        layout.label(text="Operator:")
+        # layout.label(text="Operator:")
 
-        km_name = self.get_operator_keymaps()
-        km = kc.keymaps.get(km_name)
-        if km:
-            self.draw_km(kc, km, layout)
+        # km_name = self.get_operator_keymaps()
+        # km = kc.keymaps.get(km_name)
+        # if km:
+        #     self.draw_km(kc, km, layout)
         
         
     @staticmethod

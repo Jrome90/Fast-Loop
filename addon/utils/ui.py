@@ -336,7 +336,7 @@ def get_units_to_display(disable: bool):
             units_to_disable = all_possible_units.difference(units_to_disable)
 
         elif unit_system == "IMPERIAL":
-            all_possible_units = {"miles": "mi", "feet": "'", "inches": "\"", "thou": "thou"}
+            all_possible_units = {"miles", "feet", "inches", "thou"}
             units_to_disable = all_possible_units.difference(units_to_disable)
 
         for unit in units_to_disable:

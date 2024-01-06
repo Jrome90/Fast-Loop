@@ -205,6 +205,8 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
                 context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)
                 # bpy.context.scene.tool_settings.use_snap = True                  
                 handled = True
+        elif self.is_sliding and not event.ctrl and self.snap_enabled:
+            self.disable_snapping(context)
 
         
         if not event.ctrl and event.type in {'X', 'Y', 'Z'} and event.value == 'PRESS':
@@ -580,7 +582,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         world_mat = self.world_mat
         # HARDCODE INTO B
         # side_index = 1
-        self.constrained_to_bounds = False
+        # self.constrained_to_bounds = False
         to_origin = Matrix.Translation(-world_mat.to_translation()) @ world_mat
         from_origin = to_origin.inverted_safe()
      
@@ -645,7 +647,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
                             # self.points_3d.append(world_mat @ from_origin @ intersect_vec)
                         vert.co = from_origin @ utils.math.constrain_point_to_line_seg(start, intersect_vec, end) #@ intersect_vec
                     else:
-                        self.points_3d.append(from_origin @ intersect_vec)
+                        # self.points_3d.append(from_origin @ intersect_vec)
 
                         vert.co = from_origin @ intersect_vec
         bmesh.update_edit_mesh(context.active_object.data, destructive=False)
@@ -726,7 +728,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
                 closest_side_index = 1
                 closest_side = slide_vert.dir_side[closest_side_index]
             
-            print(f"Side: {'A' if closest_side_index == 0 else 'B'}")
+            # print(f"Side: {'A' if closest_side_index == 0 else 'B'}")
 
             #         if isclose(dot, 1.0, abs_tol=10e-5):
             #             closest_side = dir_side
@@ -756,10 +758,10 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
                     # p, factor = intersect_point_line(isect_point, (world_mat @ closest_side), (world_mat @slide_vert.vert_orig_co))
                     # proj_vec = vec2.project(edge_vec)
                     # self.points_3d.append((world_mat @ slide_vert.vert_orig_co) + proj_vec)
-                    self.points_3d.append(point_on_axis_line)
+                    # self.points_3d.append(point_on_axis_line)
                     factor = (point_on_axis_line - vert_co).length
 
-                print(f"Factor {factor}")         
+                # print(f"Factor {factor}")         
                 self.edge_constraint_slide_snap(context, factor, closest_side_index, self.axis_vec)
     
     
