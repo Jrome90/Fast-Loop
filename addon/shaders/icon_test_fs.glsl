@@ -40,7 +40,7 @@ float sdSquare(vec2 uv, float size, vec2 offset) {
 }
 
 // Box - exact   (https://www.youtube.com/watch?v=62-pRVZuS5c)
-float sdBox(in vec2 p, in vec2 b, in vec2 offset)
+float sdBox(vec2 p, vec2 b, vec2 offset)
 {
     float x = p.x - offset.x;
     float y = p.y - offset.y;
@@ -51,7 +51,7 @@ float sdBox(in vec2 p, in vec2 b, in vec2 offset)
 
 
 // Rounded Box - exact   (https://www.shadertoy.com/view/4llXD7 and https://www.youtube.com/watch?v=s5NGeUV2EyU)
-float sdRoundedBox( in vec2 p, in vec2 b, in vec4 r )
+float sdRoundedBox( vec2 p, vec2 b, vec4 r )
 {
     r.xy = (p.x>0.0)?r.xy : r.zw;
     r.x  = (p.y>0.0)?r.x  : r.y;
@@ -61,7 +61,7 @@ float sdRoundedBox( in vec2 p, in vec2 b, in vec4 r )
 
 // Isosceles Triangle - exact   (https://www.shadertoy.com/view/MldcD7)
 
-float sdTriangleIsosceles( in vec2 p, in vec2 q, in vec2 offset)
+float sdTriangleIsosceles( vec2 p, vec2 q, vec2 offset)
 {
 
     float x = p.x - offset.x;
@@ -78,7 +78,7 @@ float sdTriangleIsosceles( in vec2 p, in vec2 q, in vec2 offset)
 }
 
 // Cut Disk - exact   (https://www.shadertoy.com/view/ftVXRc)
-float sdCutDisk( in vec2 p, in float r, in float h )
+float sdCutDisk(vec2 p,  float r, float h )
 {
     //p = rotate(p, PI);
 
