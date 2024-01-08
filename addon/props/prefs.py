@@ -227,7 +227,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
     show_bar: bpy.props.BoolProperty(
         name='Display Segment Bar',
-        description='Enable to display the segment bar.',
+        description='Draw the segment bar.',
         default=True,
         update=lambda s, c: s.show_slider_changed.emit()
 
@@ -235,9 +235,15 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
     show_percents: bpy.props.BoolProperty(
         name='Display percentage',
-        description='Enable to display the percent of each segment.',
+        description='Draw the percents for each loop.',
         default=True,
         update=lambda s, c: s.show_percentages_changed.emit()
+    )
+
+    draw_distance_segment: bpy.props.BoolProperty(
+        name='Draw Distance near Mouse',
+        description='Draw line segment and distance near mouse.',
+        default=True,
     )
 
     interpolation_type: bpy.props.EnumProperty(

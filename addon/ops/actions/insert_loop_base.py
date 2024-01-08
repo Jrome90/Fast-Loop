@@ -219,10 +219,12 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
                 self.context.slider_widget.draw()
 
             self.context.main_panel_hud.draw()
-            
-        DrawDirectionArrowMixin.draw_ui(self, bl_context)
+
+        if prefs().draw_distance_segment:
+            DrawDirectionArrowMixin.draw_ui(self, bl_context)
 
     def draw_3d(self, bl_context):
         DrawLoopsMixin.draw_3d(self, bl_context)
-        DrawDirectionArrowMixin.draw_3d(self, bl_context)
+        if prefs().draw_distance_segment:
+            DrawDirectionArrowMixin.draw_3d(self, bl_context)
 

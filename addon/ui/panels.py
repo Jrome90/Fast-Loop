@@ -72,6 +72,12 @@ class VIEW3D_PT_HUDSettings(Panel):
         for unit in units_to_display:
             col.prop(prefs, unit, toggle=True)
 
+        layout.label(text="Distance Text")
+        layout_split = layout.split()
+        b = layout_split.box()
+        col = b.column()
+        col.prop(prefs, "draw_distance_segment", text="Show" if not utils.common.prefs().draw_distance_segment else "Hide", toggle=True)
+
 
 class VIEW3D_PT_LoopSlicePanel(Panel):
     bl_space_type = 'VIEW_3D'
