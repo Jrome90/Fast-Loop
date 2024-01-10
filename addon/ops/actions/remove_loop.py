@@ -72,7 +72,7 @@ class RemoveLoopAction(BaseAction):
     def remove_edge_loop(self):
         bm = self.context.ensure_bmesh_(self.context.active_object)
         bm.edges.ensure_lookup_table()
-        current_edge = self.context.edge_data.first_edge.bm_edge
+        current_edge = self.context.current_edge
         dissolve_edges = list(bmesh_edge_loop_walker(current_edge))
 
         ops.dissolve_edges(bm, edges=dissolve_edges, use_verts=True)
