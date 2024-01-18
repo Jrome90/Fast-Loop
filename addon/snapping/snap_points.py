@@ -268,7 +268,7 @@ class SnapPointsMixin():
             if use_center and i == 0:
                 continue
 
-            if (i % 4 == 0 and self._use_distance) or not self._use_distance:
+            if (i % utils.ops.options().major_tick_mult == 0 and self._use_distance) or not self._use_distance:
                 start_tmp = start
                 if utils.ops.options().use_opposite_snap_dist and not use_center:
                     start_tmp = end
@@ -308,7 +308,7 @@ class SnapPointsMixin():
         for i, position in enumerate(snap_points):
             tick_len = 0.01
             i += 1 if not utils.ops.options().snap_center else 0
-            if (i) % 4 == 0:
+            if i % utils.ops.options().major_tick_mult == 0:
                 tick_len = 0.03
 
             p1 = position

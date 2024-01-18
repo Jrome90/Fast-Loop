@@ -411,6 +411,16 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         update=property_changed
     )
 
+    major_tick_mult: bpy.props.IntProperty(
+        name='Major Tick Multiplier',
+        description='Draw major tick every multiple of this value',
+        default=4,
+        soft_max=10,
+        min=1,
+        max=100,
+        update=property_changed
+    )
+
     # snap_side: bpy.props.EnumProperty(
     #     name='Snap Side',
     #     items=[ ('LEFT', "Left", "", 2),

@@ -63,6 +63,7 @@ class DrawFastLoopUI():
                 use_dist_col.prop(options, "auto_segment_count")
                 use_dist_col.prop(options, "snap_distance")
                 use_dist_col.prop(options, "use_opposite_snap_dist", toggle=True)
+                use_dist_col.prop(options, "major_tick_mult")
 
                 col = b.row(align=True)
                 col.prop(options, "snap_left", toggle=True, text="Left")
