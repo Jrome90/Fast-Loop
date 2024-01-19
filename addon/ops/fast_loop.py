@@ -574,8 +574,8 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         vert_c_world = self.world_mat @ vert_c
 
         isect_points = None
-        if self.edge_data is not None and self.edge_data.points:
-
+        if (self.edge_data is not None and self.edge_data.points) and (self.edge_data.first_edge is not None and self.edge_data.other_edge):
+            
             first_edge_points = self.edge_data.first_edge.points
             other_edge_points = self.edge_data.other_edge.points
 
