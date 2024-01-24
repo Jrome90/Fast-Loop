@@ -478,7 +478,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     def reset_to_defaults(self):
         for attribute in self.bl_rna.properties.keys():
             if attribute not in {'rna_type', 'name', 'dirty', 'cancel', 'snap_divisions', 'snap_factor', 'snap_distance', 
-                                'use_distance', 'auto_segment_count', 'panel_locked', 'snap_left', 'snap_center', 'snap_right'}:
+                                'use_distance', 'auto_segment_count', 'panel_locked', 'snap_left', 'snap_center', 'snap_right', 'major_tick_mult'}:
                 if hasattr(self, attribute):
                     default_value =  self.bl_rna.properties[attribute].default
                     setattr(self, attribute, default_value)
