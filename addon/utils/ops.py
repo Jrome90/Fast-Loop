@@ -76,15 +76,15 @@ def set_fl_prop(property, value)-> bool:
 
 def options():
     context = bpy.context
-    if hasattr(context.window_manager, "fl_options"):
-        return context.window_manager.fl_options
+    if hasattr(context.scene, "fl_options"):
+        return context.scene.fl_options
     return None
 
 def set_option(option, value)-> bool:
     context = bpy.context
-    if hasattr(context.window_manager, "fl_options"):
-        if hasattr(context.window_manager.fl_options, option):
-            setattr(context.window_manager.fl_options, option, value)
+    if hasattr(context.scene, "fl_options"):
+        if hasattr(context.scene.fl_options, option):
+            setattr(context.scene.fl_options, option, value)
             return True
     return False
 

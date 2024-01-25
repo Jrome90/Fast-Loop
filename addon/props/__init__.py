@@ -23,7 +23,7 @@ def register():
     bpy.types.WindowManager.example = bpy.props.PointerProperty(type=addon.AddonProps)
     bpy.types.WindowManager.keymap_strings = bpy.props.PointerProperty(type=addon.ModalKeymapDisplay)
 
-    bpy.types.WindowManager.fl_options = bpy.props.PointerProperty(type=addon.FL_Options)
+    bpy.types.Scene.fl_options = bpy.props.PointerProperty(type=addon.FL_Options)
     bpy.types.WindowManager.fl_props = bpy.props.PointerProperty(type=addon.FL_Props)
     
     bpy.types.WindowManager.Loop_Cut_Slots = bpy.props.PointerProperty(type=addon.Loop_Cut_Slots_Prop)
@@ -37,7 +37,7 @@ def register():
 def unregister():
     del bpy.types.WindowManager.example
     del bpy.types.WindowManager.keymap_strings
-    del bpy.types.WindowManager.fl_options
+    del bpy.types.Scene.fl_options
     del bpy.types.WindowManager.fl_props
     del bpy.types.WindowManager.Loop_Cut_Slots
     del bpy.types.WindowManager.Loop_Cut_Slots_Index

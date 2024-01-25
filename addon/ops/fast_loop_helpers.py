@@ -30,10 +30,7 @@ def mode_enabled(mode) -> bool:
     return False
 
 def get_options():
-    context = bpy.context
-    if hasattr(context.window_manager, "fl_options"):
-        return context.window_manager.fl_options
-    return None
+   return ops.options()
 
 def set_mode(mode):
     ops.set_option('mode', enum_to_str[mode])

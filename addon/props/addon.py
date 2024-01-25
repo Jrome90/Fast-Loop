@@ -207,12 +207,14 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         name='dirty',
         description='',
         default=False,
+        options={'SKIP_SAVE'},
     )
 
     cancel: bpy.props.BoolProperty(
         name='Cancel',
         description='Exit out of the tool',
         default=False,
+        options={'SKIP_SAVE'},
     )
 
     def segments_changed(self, context):
@@ -225,7 +227,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         default=1,
         soft_max=10,
         min=1,
-        max=100,
+        max=500,
         update=segments_changed
     )
 
@@ -244,6 +246,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         ],
         description="Mode",
         default='SINGLE',
+        options={'SKIP_SAVE'},
         update=mode_changed
         )
 
@@ -328,6 +331,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         name='Insert Verts',
         description='Insert vertices on the active edge.',
         default=False,
+        options={'SKIP_SAVE'},
         update=lambda s, c: property_changed2(s, c, "insert_verts", s.insert_verts)
     )
 
@@ -335,6 +339,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         name='Use Selected Edges',
         description='Select edges to guide the loop\'s direction',
         default=False,
+        options={'SKIP_SAVE'},
         update=lambda s, c: property_changed2(s, c, "insert_on_selected_edges", s.insert_on_selected_edges)
     )
 
@@ -342,6 +347,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         name='Freeze Edge',
         description='Freeze the active edge to prevent it from changing when moving the cursor.',
         default=False,
+        options={'SKIP_SAVE'},
         update=lambda s, c: property_changed2(s, c, "freeze_edge", s.freeze_edge)
     )
 
@@ -356,6 +362,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         name='Lock Snap Points',
         description='Lock the snapping points to the active edge.\nThis keeps the points from changing after loop(s) are inserted',
         default=False,
+        options={'SKIP_SAVE'},
         update=lambda s, c: property_changed2(s, c, "lock_snap_points", s.lock_snap_points)
     )
 
@@ -394,6 +401,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         name='Use Opposite Snap Distance',
         description='Calculate snap distance from the opposite end.\n Shortcut: ]',
         default=False,
+        options={'SKIP_SAVE'},
     )
 
     use_distance: bpy.props.BoolProperty(
@@ -478,7 +486,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     def reset_to_defaults(self):
         for attribute in self.bl_rna.properties.keys():
             if attribute not in {'rna_type', 'name', 'dirty', 'cancel', 'snap_divisions', 'snap_factor', 'snap_distance', 
-                                'use_distance', 'auto_segment_count', 'panel_locked', 'snap_left', 'snap_center', 'snap_right', 'major_tick_mult'}:
+                                'use_distance', 'auto_segment_count', 'snap_left', 'snap_center', 'snap_right', 'major_tick_mult', 'use_snap_points'}:
                 if hasattr(self, attribute):
                     default_value =  self.bl_rna.properties[attribute].default
                     setattr(self, attribute, default_value)
