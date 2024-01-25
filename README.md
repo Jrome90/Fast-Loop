@@ -1,5 +1,5 @@
 # Fast Loop
-This README is outdated. Go [here](https://blenderartists.org/t/fast-loop/1302008/76) for the latest changes.
+This README is outdated. Go [here](https://blenderartists.org/t/fast-loop/1302008/203) for the latest changes.
 
 ## What is Fast Loop?
 Fast loop makes inserting new loops easy. With the ability to preview the loop(s) before actually inserting them, you dont need to worry about making adjustments afterwards.
