@@ -16,7 +16,8 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
     
     def enter(self):
         self.context.main_panel_hud.set_child_visibility_by_name("Multi", True)
-        self.context.main_panel_hud.set_title_bar_text("Multi")
+        self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
+
         self.context.main_panel_hud.layout_widgets()
         super().enter()
 
@@ -36,6 +37,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
 
         elif n is not None:
             self.context.segments = n
+            self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
             handled = True
 
         if not handled:
@@ -53,6 +55,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
                 self.update()
                 self.context.switch_action(insert_single_loop.InsertSingleLoopAction(self.context))
             else:
+                self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
                 self.context.scale = self.CalculateDefaultScaleValue()
 
             handled = True
@@ -60,6 +63,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
         elif modal_event == "Increase Loop Count":
             self.update()
             self.context.segments += 1
+            self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
             self.context.scale = self.CalculateDefaultScaleValue()
             handled = True
 
