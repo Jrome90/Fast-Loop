@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 import bpy, bmesh
 from bpy.types import Object
 
-from .. utils import common, draw_3d, mesh, math
+from .. utils import common, draw_3d, mesh, math, ops
 from .. props import addon
 from ..props.fl_properties import CommonProps
 from .. snapping.snapping import SnapContext
@@ -120,8 +120,9 @@ class FastLoopCommon(Actions, MultiObjectEditing):
         self.add_selected_editable_objects(context)
         #TODO Sometimes the index is out of range. Need to find out why
         if not list(self.selected_editable_objects.values()):
-            self.report({'ERROR'}, "Something went wrong. Toggle edit mode and try again")
-            return {"CANCELLED"}
+            self.report({'ERROR'}, "Something went wrong. Toggle edit mode, make sure you have at least one object selected, and try again")
+            ops.set_fl_prop('is_running', False)
+            return self.cancel(context)
         
         self.active_object = list(self.selected_editable_objects.values())[0]
         self.ensure_bmesh_(self.active_object)
