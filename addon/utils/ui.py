@@ -260,8 +260,11 @@ def inside_npanel(mouse_coords_win, area):
 def inside_navigation_gizmo(mouse_co, mouse_coords_win, area: Area):
     axis_gizmo_size_px = 80.0
     major, minor, _ = bpy.app.version
-    if major >= 2 and minor >= 93:
-        axis_gizmo_size_px = bpy.context.preferences.view.gizmo_size_navigate_v3d
+    # if major >= 2 and minor >= 93:
+    if bpy.context.preferences.view.mini_axis_type in {'MINIMAL'}:
+        return False
+
+    axis_gizmo_size_px = bpy.context.preferences.view.gizmo_size_navigate_v3d
 
     axis_gizmo_size_px /= 2.0
     axis_gizmo_offset_px = 10.0
