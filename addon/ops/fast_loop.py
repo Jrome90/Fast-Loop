@@ -52,6 +52,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     sub_props = SubProps()
     snap_props = SnapProps()
 
+    undo_was_called = False
     is_scaling = False
     snap_enabled = False
     force_offset_value = -1
@@ -71,6 +72,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     slider_widget: BL_UI_SliderMulti = None
 
     draw_direction_arrow_lines: List = []
+
    
 #region -Properties
     @property
@@ -225,12 +227,15 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
     def setup(self, context):
         super().setup(context)
+        # Clear undo_history_keymap everytime we run setup so we can get the latest keymap from settings.
+        ops.clear_undo_history_keymap()
+        if ops.get_undo_keymapping() is None:
+            ops.set_undo_history_keymap()
+
         window_manager = context.window_manager
         window_manager.Loop_Cut_Slots.setup(context)
                     
         self.edge_pos_algorithm = self.get_edge_pos_algorithm()
-
-        self.multi_loop_props.loop_space_value = self.scale
 
         main_panel_hud_x = common.prefs().operator_panel_x
         main_panel_hud_y = common.prefs().operator_panel_y
@@ -269,12 +274,17 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
         self.push_action(InsertSingleLoopAction(self))
 
+        self.multi_loop_props.loop_space_value = self.scale
+
 
     def invoke(self, context, event):
         result = super().invoke(context, event)
         if result != {'CANCELLED'}:
             if not ops.match_event_to_keymap(event, ops.get_undo_keymapping()):
                 self.fast_loop_options.reset_to_defaults()
+            elif self.undo_was_called:
+                self.snap_enabled = False
+                self.undo_was_called = False
 
             self.event_handler = Event_Handler(km_cache.get_keymap(self.bl_idname))
         return result
@@ -409,7 +419,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         
         if event.type in {'TIMER'}:
             return {'RUNNING_MODAL'}
-                
+        
         mouse_coords_win = (event.mouse_x, event.mouse_y)
         area = ui.get_active_area(mouse_coords_win, context)
         mouse_coords = (event.mouse_region_x, event.mouse_region_y)
@@ -424,6 +434,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             return {'PASS_THROUGH'}
         
         if ops.match_event_to_keymap(event, ops.get_undo_keymapping()):
+            self.undo_was_called = True
             return {'PASS_THROUGH'}
 
         handled = False
@@ -461,9 +472,10 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             handled = True
             self.disable_snapping(context)
         
-        elif not event.ctrl and event.value in {'RELEASE'} and self.snap_enabled:
+        elif not event.ctrl and event.value in {'RELEASE'} and self.snap_enabled or (event.value_prev in {'RELEASE'} and self.undo_was_called):
             handled = True
             self.disable_snapping(context)
+            self.undo_was_called = False
 
         if self.snap_context is None:
             self.snap_context: SnapContext = SnapContext.get(context, context.evaluated_depsgraph_get(), self, context.space_data, context.region,)

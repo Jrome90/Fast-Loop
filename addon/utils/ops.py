@@ -48,14 +48,31 @@ def get_m_button_map(button):
     if button == 'RIGHTMOUSE':
         return 'RIGHTMOUSE' if select_mouse_val == "LEFTMOUSE" else 'LEFTMOUSE'
 
+undo_history_keymap = None
 KeyMapItem = namedtuple("KeyMapItem", "type value ctrl alt shift")
 def get_undo_keymapping():
-    item = bpy.context.window_manager.keyconfigs.user.keymaps['Screen'].keymap_items['ed.undo']
-    return KeyMapItem(item.type, item.value, item.ctrl, item.alt, item.shift)
+    global undo_history_keymap
+    item = bpy.context.window_manager.keyconfigs.user.keymaps['Screen'].keymap_items.get('ed.undo', None)
+    if item is not None:
+        return KeyMapItem(item.type, item.value, item.ctrl, item.alt, item.shift)
+    elif undo_history_keymap is not None:
+        return undo_history_keymap
+    return None
 
 
 def match_event_to_keymap(event, key_map_item):
     return (event.type, event.value, event.ctrl, event.alt, event.shift) == key_map_item
+
+
+def set_undo_history_keymap():
+    global undo_history_keymap
+    for item in bpy.context.window_manager.keyconfigs.user.keymaps['Window'].keymap_items.values():
+        if item.name in {'Undo History'}:
+            undo_history_keymap = KeyMapItem(item.type, item.value, item.ctrl, item.alt, item.shift)
+
+def clear_undo_history_keymap():
+    global undo_history_keymap
+    undo_history_keymap = None
 
 
 #bpy.context.window_manager.keyconfigs.active.keymaps['Screen'].keymap_items['ed.undo']
