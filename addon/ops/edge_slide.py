@@ -1,7 +1,5 @@
 from __future__ import annotations
 from typing import Dict, List
-   
-from math import isclose
 
 import bpy, bmesh
 from bmesh.types import BMEdge, BMVert
@@ -15,13 +13,6 @@ from .. utils.edge_slide import EdgeVertexSlideData, VertSlideType, calculate_ed
 from .. snapping.snapping import SnapContext
 
 from ..ui.widgets import (VLayoutPanel, VLayoutDragPanel, make_hotkey_label)
-
-
-from enum import Enum
-class Mode(Enum):
-    EDGE_SLIDE = 1
-    EDGE_CONSTRAINT = 2
-    PASS_THROUGH = 3
 
 
 class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
@@ -56,19 +47,13 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
         options={'HIDDEN', 'SKIP_SAVE'}
     )  
 
-    mode = Mode.EDGE_SLIDE
     is_sliding = False
     slide_value = 0.0
     active_object = None
     initial_bm = None
-    # bm: BMesh = None
-    # bm_store: BMesh = None
     nearest_vert = None
     nearest_vert_co = None
     nearest_vert_co_2d = None
-
-    # world_mat: Matrix = None
-    # world_inv: Matrix = None
 
     draw_handler_2d = None
 
@@ -125,18 +110,12 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
         
         self.active_object = list(self.selected_editable_objects.values())[0]
         self.ensure_bmesh_(self.active_object)
-        # self.active_object = context.active_object
-        # self.world_mat = context.object.matrix_world.normalized()
-        # self.world_inv = context.object.matrix_world.inverted_safe()
-
         self.slide_verts.clear()
         self.loop_vert_pairs.clear()
         self.edge_clones.clear()
         self.split_edges.clear()
 
-        self.mode = Mode.EDGE_SLIDE
         self.is_sliding = False
-        # self.ensure_bmesh()
         utils.mesh.ensure(self.active_object.bm)
         
         self.active_object.bm.select_mode = {'EDGE'}
@@ -214,10 +193,7 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
     
     def switch_modes(self, context, event):
-        # super().finished(context)
-        # self.clear_draw()
         bpy.context.window.cursor_modal_restore()
-        # context.workspace.status_text_set(None)
 
         context.area.tag_redraw()
 
@@ -229,12 +205,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
         self.notify_listeners(message="switch_modes", data=event)
         return {'FINISHED'}
-    
-
-    # def clear_draw(self):
-    #     # self.axis_draw_points.clear()
-    #     # self.axis_draw_colors.clear()
-    #     self.slide_edge_draw_lines.clear()
 
 
     @utils.safety.decorator
@@ -243,31 +213,12 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
         if context.mode != 'EDIT_MESH':
                 return self.cancel(context)
 
-        # if not self.restricted and event.ctrl and event.type == 'Z' and event.value == 'PRESS':
-        #     if self.is_sliding and self.mode == Mode.EDGE_CONSTRAINT:
-        #         self.is_sliding = False
-        #         self.mode = Mode.EDGE_SLIDE
-                
-        #     return {'PASS_THROUGH'}
-
-        # self.set_status(context)
         if utils.common.prefs().use_spacebar and event.alt and self.invoked_by_fla:
             return {'PASS_THROUGH'}
 
 
         handled = False
-        if not self.restricted and not event.ctrl and event.type in {'S', 'D'} and event.value == 'PRESS':
-            if event.type in {'S'}:
-                if not self.mode == Mode.PASS_THROUGH:
-                    self.mode = Mode.PASS_THROUGH
-                    self.is_sliding = False
-                    context.area.tag_redraw()
-                    return {'RUNNING_MODAL'}
-                else:
-                    self.mode = Mode.EDGE_SLIDE
-
-                handled = True
-
+        # if not self.restricted and not event.ctrl and event.type in {'D'} and event.value == 'PRESS':
             # TODO: DISABLED until updated to work with mulitple object editing
             # elif event.type in {'D'}:
             #     self.clone_edge = not self.clone_edge
@@ -282,9 +233,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
             bpy.ops.ed.undo()
             # self.init_setup(context)
             handled = True
-            
-        if self.mode == Mode.PASS_THROUGH:
-            return {'PASS_THROUGH'}
 
         if not utils.common.prefs().use_spacebar:
             if not event.alt and self.restricted:
@@ -369,13 +317,12 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
                 if self.is_sliding:
                     mouse_coords = (event.mouse_region_x, event.mouse_region_y)
-                    if self.mode == Mode.EDGE_SLIDE:
-                        # self.revert_bmesh(context)
-                        self.ensure_bmesh_(self.active_object)
-                        utils.mesh.ensure(self.active_object.bm)
-                        even = event.ctrl and not event.shift
-                        keep_shape = event.shift and not event.ctrl
-                        self.edge_slide(context, mouse_coords, even, keep_shape)
+                    # self.revert_bmesh(context)
+                    self.ensure_bmesh_(self.active_object)
+                    utils.mesh.ensure(self.active_object.bm)
+                    even = event.ctrl and not event.shift
+                    keep_shape = event.shift and not event.ctrl
+                    self.edge_slide(context, mouse_coords, even, keep_shape)
                            
                     handled = True
 
@@ -410,9 +357,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
                 # for index in self.selected_edges:
                 #     self.bm.edges[index].select = True
-
-                # if not self.restricted:
-                self.mode = Mode.EDGE_SLIDE
                 bpy.ops.ed.undo_push()
 
         if self.invoked_by_fla:
@@ -444,12 +388,9 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
             utils.draw_2d.draw_points(self.points_2d)
         self.points_2d.clear()
 
-        if  self.mode == Mode.EDGE_SLIDE and self.is_sliding and self.nearest_vert_co_2d is not None:
+        if self.is_sliding and self.nearest_vert_co_2d is not None:
             utils.draw_2d.draw_circle((self.nearest_vert_co_2d), 2.5)
 
-        elif self.mode == Mode.PASS_THROUGH:
-            utils.draw_2d.draw_region_border(context)
-        
         if self.main_panel_hud is not None:
             self.main_panel_hud.draw()
     
@@ -477,61 +418,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
             return nearest_vert
 
         return None
-
-
-    # TODO: Use a better method to do this.
-    def get_nearest_vert_and_edge(self, mouse_coords):
-        bm = self.ensure_bmesh_(self.active_object)
-        mouse_co: Vector = Vector(mouse_coords)
-        min_dist_sq = float('INF')
-        min_angle = float('INF')
-        visited_verts = set()
-        nearest_vert = None
-        nearest_edge = None
-        nearest_vert_2d = None
-        fallback_edge = None
-        for edge in self.active_object.bm.edges:
-            if edge.select:
-                for vert in [edge.verts[0], edge.other_vert(edge.verts[0])]:
-                    if vert.index not in visited_verts:
-                        vert_co_world = self.world_mat @ vert.co
-                        vert_2d = utils.math.location_3d_to_2d(vert_co_world)
-                        if vert_2d is not None:
-                            dist_sq = (mouse_co - vert_2d).length_squared
-                            if dist_sq < min_dist_sq:
-                                nearest_vert = vert
-                                nearest_vert_2d = vert_2d
-                                min_dist_sq = dist_sq
-
-                        visited_verts.add(vert.index)
-
-        if nearest_vert is not None:
-            for vert_edge in nearest_vert.link_edges:
-                if vert_edge.select:
-                    other_vert_co_2d = utils.math.location_3d_to_2d(self.world_mat @ vert_edge.other_vert(nearest_vert).co)
-                    if other_vert_co_2d is not None:
-                        edge_2d = (other_vert_co_2d - nearest_vert_2d)
-                        if not isclose(edge_2d.length, 0.0):
-                            angle = (nearest_vert_2d - mouse_co).angle(edge_2d)
-                    if other_vert_co_2d is not None:
-                        edge_2d = (other_vert_co_2d - nearest_vert_2d)
-                        if not isclose(edge_2d.length, 0.0):
-                            angle = (nearest_vert_2d - mouse_co).angle(edge_2d)
-
-                            if angle < min_angle:
-                                nearest_edge = vert_edge
-                                min_angle = angle
-                        else:
-                            fallback_edge = vert_edge
-        
-
-        if nearest_vert is not None and nearest_edge is not None:
-            return nearest_vert, nearest_edge
-
-        if nearest_vert is not None and nearest_edge is None and fallback_edge is not None:
-            return nearest_vert, fallback_edge
-
-        return None, None
 
     def edge_slide(self, context, mouse_coords, even, keep_shape):
         face_slide = False
