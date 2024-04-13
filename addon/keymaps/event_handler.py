@@ -1,4 +1,4 @@
-from re import compile, finditer, IGNORECASE, Match
+from re import compile, IGNORECASE, Match
 from dataclasses import dataclass
 from typing import *
 
@@ -67,6 +67,8 @@ class Event_Handler():
         self._percent_pattern = None
         self._callback = None
         self._consume_mouse_events = False
+
+        self.should_consume_mouse_input = True
 
     def handle_event(self, event):
         if self._numeric_input_enabled:
@@ -164,7 +166,7 @@ class Event_Handler():
             # elif key in {'E'}:
             #     return "numeric_input_pass_through"
 
-            elif key not in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'ESC'} or self._consume_mouse_events:
+            elif self.should_consume_mouse_input and (key not in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'ESC'} or self._consume_mouse_events):
                 return "numeric_input"
         
         if changed:
@@ -176,7 +178,7 @@ class Event_Handler():
                 results = NumericInputResults(self._numeric_value, None, True, valid_input)
 
             self._callback(results)
-            self._consume_mouse_events = True
+            self._consume_mouse_events = self.should_consume_mouse_input
             return "numeric_input"
         
         # if event.type == "C":
@@ -218,7 +220,8 @@ class Event_Handler():
         self._imperial_pattern =  compile(r"(?P<val>[0-9.,]+(?:(?: \d+)*[/0-9]+)?)(?P<unit>\'|\"|thou|ft|in)?", IGNORECASE)
 
         self._numeric_input_enabled = True
-        self._numeric_input_done_keys.add(event.type)
+        if event is not None:
+            self._numeric_input_done_keys.add(event.type)
         self._numeric_input_done_keys.add('ESC')
         self._numeric_input_done_keys.add('RET')
         self._callback = input_changed_callback

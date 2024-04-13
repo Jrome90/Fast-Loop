@@ -14,28 +14,29 @@ from .edge_ring import EdgeRing, TriFan, SingleLoop, LoopCollection
 
 EdgeMetaData = namedtuple('ActiveEdgeData','bm_edge points')
 class EdgeData():
-    def __init__(self, loop_collection, props):
+    def __init__(self):
         self.points = []
         # self.distances = [] TODO
         self.edges = []
         self.edge_verts = []
         self.first_edge: EdgeMetaData = None
         self.other_edge: EdgeMetaData = None
-
-        self.populate_data(loop_collection, props)
      
      
     @singledispatchmethod
     def populate_data(self, loop_collection: EdgeRing, props):
         self.calculate_points_on_edges(loop_collection, props)
+        return self
 
     @populate_data.register
     def _(self, loop_collection: TriFan, props):
         self.calculate_points_on_edges(loop_collection, props)
+        return self
 
     @populate_data.register
     def _(self, loop_collection: SingleLoop, props):
         self.calculate_points_on_edge(loop_collection, props)
+        return self
 
 
     def calculate_points_on_edges(self, data: LoopCollection, props:AllPropsNoSnap)-> EdgeData:

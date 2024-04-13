@@ -3,7 +3,8 @@ from . import internal
 from . import fast_loop
 from . import edge_slide
 from . import edge_constraint
-from . import loop_slice
+# from . import loop_slice
+from . abs_edge_loop import OT_Absolute_Edge_Loop
 
 
 classes = (
@@ -17,7 +18,8 @@ classes = (
     fast_loop.FastLoopOperator,
     edge_slide.EdgeSlideOperator,
     edge_constraint.EdgeConstraintTranslationOperator,
-    # loop_slice.OT_LoopSlice
+    # loop_slice.OT_LoopSlice,
+    OT_Absolute_Edge_Loop,
 )
 
 

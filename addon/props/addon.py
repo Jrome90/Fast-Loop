@@ -473,6 +473,22 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     )
 
 
+# --------- Used by the experimental operator Absolute loop insert
+    distance_from_loop: bpy.props.FloatProperty(name='Distance', 
+    default=0.1, 
+    min=0.0,
+    subtype='DISTANCE',
+    unit='LENGTH',
+    precision=4
+    )
+
+    distance_str: bpy.props.StringProperty(
+        name='Distance String',
+        options={'SKIP_SAVE'},
+        default='0.1',
+        description='string shown to user',
+    )
+
     def on_loopcut_value_changed(self):       
         self.notify_listeners("loopcut_value_changed", None)
 

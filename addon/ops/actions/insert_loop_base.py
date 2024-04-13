@@ -44,7 +44,7 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
 
             if self.context.update_loops():
                 props = self.context.get_all_props_no_snap()
-                self.context.edge_data = EdgeData(data, props)
+                self.context.edge_data = EdgeData().populate_data(data, props)
                 self.context.is_single_edge = self.context.loop_data.is_single_loop()
                 self.context.update_arrows()
                 return True
@@ -203,7 +203,7 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
             if self.context.current_edge is not None and self.context.update_loops():
                 self.context.force_offset_value = 0.5
                 props = self.context.get_all_props_no_snap()
-                self.context.edge_data = EdgeData(self.context.loop_data, props)
+                self.context.edge_data = EdgeData().populate_data(self.context.loop_data, props)
                 self.context.create_geometry(select_new_edges=False)
                 bpy.ops.ed.undo_push(message="Insert Loop At Center")
                 handled = True

@@ -70,7 +70,7 @@ class ScaleLoopsAction(DrawLoopsMixin, BaseAction):
         self.update_scale(self.context.scale)
         if self.context.update_loops():
             props = self.context.get_all_props_no_snap()
-            self.context.edge_data = EdgeData(self.context.loop_data, props)
+            self.context.edge_data = EdgeData().populate_data(self.context.loop_data, props)
             self.context.start_mouse_pos_x = bl_event.mouse_x
             self._mouse_updated = True
             
@@ -125,7 +125,7 @@ class ScaleLoopsAction(DrawLoopsMixin, BaseAction):
     
         if self.context.update_loops():
             props = self.context.get_all_props_no_snap()
-            self.context.edge_data = EdgeData(self.context.loop_data, props)
+            self.context.edge_data = EdgeData().populate_data(self.context.loop_data, props)
             self.context.ensure_bmesh_(self.context.active_object)
         
         self.update_scale(self.context.scale)

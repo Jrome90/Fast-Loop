@@ -37,7 +37,6 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     def is_running(self, value):
         set_prop('is_running', value)
 
-    flipped = False
     @property
     def flipped(self):
         return self.fast_loop_options.flipped
@@ -181,8 +180,8 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     def draw_3d(self, context):
         self.current_action.draw_3d(context)
         # Debug points
-        # if self.points_3d and not self.points_3d_colors:
-        draw_3d.draw_points(self.points_3d, size=5)
+        if self.points_3d and not self.points_3d_colors:
+            draw_3d.draw_points(self.points_3d, size=5)
         self.points_3d.clear()
         # elif self.points_3d and self.points_3d_colors:
         #     draw_3d.draw_debug_points(self.points_3d, self.points_3d_colors, size=5.0)
@@ -375,11 +374,9 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     #     bmesh.update_edit_mesh(mesh)
 #endregion
 
-    def update_loops(self, nearest_co= None):
-
-        if not self.active_object.bm.is_valid:
+    def update_loops(self):
+        if not self.active_object.bm.is_valid or self.loop_data is None:
             return False
-
         self.is_loop = self.loop_data.get_is_loop()
         return True
 

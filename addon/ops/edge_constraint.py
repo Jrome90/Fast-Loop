@@ -683,7 +683,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
 
     
     def do_snap(self, context, snap_target_location):
-        use_axis_constraint = False
+        use_axis_constraint = True
         if bpy.context.scene.tool_settings.snap_target in {'CLOSEST'}:
            self.snap_nearest_or_active(context, snap_target_location, use_axis_constraint, False)
         elif bpy.context.scene.tool_settings.snap_target in {'ACTIVE'}:
