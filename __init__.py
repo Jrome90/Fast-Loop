@@ -17,7 +17,7 @@ bl_info = {
     'author': 'Jrome',
     'description': 'Quickly insert loop cuts at the mouse position with a preview of the loop cuts.',
     'blender': (4, 0, 0),
-    'version': (2, 0, 6),
+    'version': (2, 1, 0),
     'category': 'Mesh',
 }
 
