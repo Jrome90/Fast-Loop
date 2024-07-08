@@ -91,7 +91,7 @@ class OT_Absolute_Edge_Loop(bpy.types.Operator, FastLoopCommon):
     def distance_str(self, value):
         self.operator_options.distance_str = value
 
-
+    # TODO: Dont use props shared with the fast loop operator.
     def get_all_props_no_snap(self):
         return AllPropsNoSnap(self.common_props, self.multi_loop_props, self.sub_props)
 
@@ -278,14 +278,26 @@ class OT_Absolute_Edge_Loop(bpy.types.Operator, FastLoopCommon):
         return self.loop_data.is_single_loop() if self.loop_data is not None else False
 
 
-    def do_inset(self, edge_ring_data: EdgeRing, props):
+    def do_inset_for_preview(self, edge_ring_data: EdgeRing):
         face: BMFace = edge_ring_data.get_active_face()
         bm: BMesh = bmesh.new()
         verts = [bm.verts.new(vert.co) for vert in face.verts]
         copy_face: BMFace = bm.faces.new(verts)
+
+        for edge in copy_face.edges:
+            edge.tag = True
+
+        inner_outer_edges = {edge for edge in copy_face.edges}
+
         copy_face.normal_update()
-        inset_individual(bm, faces=[copy_face], thickness=self.distance_from_loop, use_even_offset=True)
-        # TODO: use this dict to exclude highlighted edges.
-        edge_to_vert_co_lookup = {key:[vert.co for vert in key.verts] for key in [edge for edge in bm.edges]}
-        self.inset_preview_coords = list(edge_to_vert_co_lookup.values())
+        ret = inset_individual(bm, faces=[copy_face], thickness=self.distance_from_loop, use_even_offset=True)
+
+        new_edges = {edge for face in ret["faces"] for edge in face.edges}
+
+        outer_edges = {edge for edge in new_edges if edge.tag}
+        rail_edges = new_edges.difference(outer_edges)
+        # rail edges + inner outer edges == preview edges we want 
+        preview_edges = rail_edges.union(inner_outer_edges)
+
+        self.inset_preview_coords = [[self.world_mat @ vert.co for vert in edge.verts] for edge in preview_edges]
         bm.free()

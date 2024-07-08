@@ -70,35 +70,31 @@ class AbsoluteInsertLoopAction(InsertAction):
             current_edge = face_corner.edge
 
             dir_vec = self.calc_dir_vec_for_face_corner(face_corner)
-            self.context.current_position = CurrentPos(face_corner.vert.co + (dir_vec * distance), self.context.current_position.local)
+            self.context.current_position = CurrentPos(self.context.world_mat @ (face_corner.vert.co + (dir_vec * distance)), self.context.current_position.local)
 
         edge_ring_data = EdgeDataFactory.create(current_edge, self.context)
         if edge_ring_data is not None:
             self.context.loop_data = edge_ring_data
-            v = []
+            flip = False
             for vert in face_corner.link_loop_prev.edge.verts:
                 if vert == edge_ring_data.get_active_loop().vert:
-                    v.append(vert)
-            if not v:
+                    flip = True
+            if not flip:
+                # TODO: Dont use props shared with the fast loop operator.
                 self.context.common_props.flipped = True
-                # face_corner = get_face_loop_for_edge(face, current_edge)
-                # dir_vec = self.calc_dir_vec_for_face_corner(face_corner)
-                # self.context.current_position = CurrentPos(face_corner.vert.co + (dir_vec * distance), self.context.current_position.local)
-
-                # self.context.points_3d.append(face_corner.vert.co + (dir_vec * distance))
-                # self.current_edge = face_corner.edge
-                # self.current_edge_index = face_corner.edge.index
-                
             else:
                 self.context.common_props.flipped = False
 
             if self.context.update_loops():
                 props = self.context.get_all_props_no_snap()
+                # TODO: Dont use props shared with the fast loop operator.
+                props.common.mirrored = False
+
                 # Generate the point data used to construct the edges later using create_geometry()
                 if not edge_ring_data.is_single_loop():
                     self.context.edge_data = EdgeData().populate_data(edge_ring_data, props)
                 else:
-                    self.context.do_inset(edge_ring_data, props)
+                    self.context.do_inset_for_preview(edge_ring_data)
                     self.context.is_single_edge = edge_ring_data.is_single_loop()
                 return True
 
