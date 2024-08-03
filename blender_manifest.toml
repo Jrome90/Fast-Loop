@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "fast_loop"
+version = "2.1.0"
+name = "Fast Loop"
+tagline = "Quickly insert loop cuts at the mouse position with a preview"
+maintainer = "Jrome"
+type = "add-on"
+
+website = "https://github.com/Jrome90/Fast-Loop"
+
+tags = ["Mesh"]
+
+blender_version_min = "4.2.0"
+
+# License conforming to https://spdx.org/licenses/ (use "SPDX: prefix)
+# https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
+license = [
+  "SPDX:GPL-2.0-or-later",
+]

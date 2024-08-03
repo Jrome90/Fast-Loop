@@ -23,41 +23,6 @@ def update_panel_category(self, context):
             bpy.utils.register_class(cls)
 
 
-def description(*args):
-    return '.\n'.join(args)
-
-
-def header(*args):
-    return ' | '.join(args)
-
-
-def statistics(header, context):
-    if bpy.app.version < (2, 90, 0):
-        layout = header.layout
-        layout.separator_spacer()
-
-        text = context.scene.statistics(context.view_layer)
-        layout.label(text=text, translate=False)
-
-def add_shortcut_info(keymap, text_box, icons_box):
-    m_buttons = ['MOUSE_LMB', 'MOUSE_RMB']
-
-    for text, icons in keymap.items():
-        text_box.label(text=text)
-        icon_row = icons_box.row()
-        icon_row.alignment = 'LEFT'
-        
-        for icon in icons:
-            if icon in {'MOUSE_LMB', 'MOUSE_RMB'}:
-                i = m_buttons.index(icon) 
-                if common.prefs().use_rcs:
-                    icon = m_buttons[i-1]
-
-            icon_row.label(icon=icon)
-
-        icon_row.scale_x = len(icons) * 0.15
-
-
 def get_ordered_fl_keymap_actions():
         return  {"use_even": "Even", "flipped": "Flip", "mirrored": "Mirrored", 
         "perpendicular": "Perpendicular", "use_multi_loop_offset": "Multi Loop Offset",
@@ -388,7 +353,7 @@ def get_units_from_prefs():
     return units
 
 
-from decimal import ROUND_05UP, ROUND_CEILING, Decimal, getcontext, ROUND_FLOOR, ROUND_HALF_UP
+from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 def format_distance2(value, updating=False, places=6, override_settings=False):
     value_str = ""
 

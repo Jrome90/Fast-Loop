@@ -3,7 +3,6 @@ from . import addon
 from . import prefs
 
 classes = (
-    addon.AddonProps,
     addon.ModalKeymapDisplay,
     prefs.AddonPrefs,
     addon.Loop_Cut,
@@ -12,15 +11,12 @@ classes = (
     addon.FL_Props,
     addon.FL_Options,
     addon.SharedSnapData,
-
-    # addon.LoopSlice_Options,
 )
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.WindowManager.example = bpy.props.PointerProperty(type=addon.AddonProps)
     bpy.types.WindowManager.keymap_strings = bpy.props.PointerProperty(type=addon.ModalKeymapDisplay)
 
     bpy.types.Scene.fl_options = bpy.props.PointerProperty(type=addon.FL_Options)
@@ -32,10 +28,8 @@ def register():
 
     bpy.types.WindowManager.Shared_Snap_Data = bpy.props.PointerProperty(type=addon.SharedSnapData)
 
-    # bpy.types.WindowManager.ls_options = bpy.props.PointerProperty(type=addon.LoopSlice_Options)
 
 def unregister():
-    del bpy.types.WindowManager.example
     del bpy.types.WindowManager.keymap_strings
     del bpy.types.Scene.fl_options
     del bpy.types.WindowManager.fl_props
@@ -43,7 +37,6 @@ def unregister():
     del bpy.types.WindowManager.Loop_Cut_Slots_Index
     del bpy.types.WindowManager.Loop_Cut_Lookup_Index
     del bpy.types.WindowManager.Shared_Snap_Data
-    # del bpy.types.WindowManager.ls_options
-
+   
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

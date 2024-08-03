@@ -2,20 +2,6 @@ import bpy
 from .. import utils
 from .. utils import observer as obs
 
-name = __name__.partition('.')[0]
-path = __file__.partition('Fast Loop')[0]
-
-class AddonProps(bpy.types.PropertyGroup):
-    addon: bpy.props.StringProperty(
-        name='Addon',
-        description='The module for this addon',
-        default=name,
-    )
-
-    @property
-    def prefs(self):
-        return utils.common.prefs()
-
 
 class Loop_Cut(bpy.types.PropertyGroup):
     #TODO: Dont go through fl_options to update the loop cut values
@@ -250,11 +236,6 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         update=mode_changed
         )
 
-    # insert_midpoint: bpy.props.BoolProperty(
-    #     name='Midpoint Insert',
-    #     description='Insert loops at the midpoint of the edge',
-    #     default=False,
-    # )
     
     loop_position_override: bpy.props.BoolProperty(
         name='Loop Position Override',
@@ -376,15 +357,6 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         update=property_changed
     )
 
-    # snap_factor: bpy.props.FloatProperty(
-    #     name='Factor',
-    #     description='Used when the number of snap divisions is one',
-    #     min=0.0,
-    #     max=100.0,
-    #     default=50.0,
-    #     subtype='PERCENTAGE',
-    #     update=property_changed
-    # )
 
     snap_distance: bpy.props.FloatProperty(
         name='Distance',
@@ -429,16 +401,6 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         update=property_changed
     )
 
-    # snap_side: bpy.props.EnumProperty(
-    #     name='Snap Side',
-    #     items=[ ('LEFT', "Left", "", 2),
-    #             ('CENTER', "Center", "", 8),
-    #             ('RIGHT', "Right", "", 16),
-    #     ],
-    #     description="Side",
-    #     default='LEFT',
-    #     # update=mode_changed
-    #     )
 
     ignore_left_update: bpy.props.BoolProperty(
         name='ignore_left_update',
@@ -489,6 +451,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         description='string shown to user',
     )
 
+
     def on_loopcut_value_changed(self):       
         self.notify_listeners("loopcut_value_changed", None)
 
@@ -498,6 +461,7 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
         if use_context:
             context = utils.ops.get_context_overrides(bpy.context.selected_editable_objects)
         self.notify_listeners("snap_gizmo_update", location, context)
+
 
     def reset_to_defaults(self):
         for attribute in self.bl_rna.properties.keys():
@@ -522,111 +486,111 @@ def prop_changed_ls(self, context, prop, value):
 
 #     self.notify_listeners(prop, value)
 
-from ...signalslot.signalslot import Signal
-class LoopSlice_Options(obs.Subject, bpy.types.PropertyGroup):
+# from ...signalslot.signalslot import Signal
+# class LoopSlice_Options(obs.Subject, bpy.types.PropertyGroup):
 
-    _listeners  = {}
+#     _listeners  = {}
 
-    skip_notify: bpy.props.BoolProperty(
-        name='skip_notify',
-        description='Flag to prevent notifying listeners',
-        default=False,
-    )
+#     skip_notify: bpy.props.BoolProperty(
+#         name='skip_notify',
+#         description='Flag to prevent notifying listeners',
+#         default=False,
+#     )
 
-    def edit_mode_changed(self, context):
-        default =  self.bl_rna.properties['edit_mode'].default
-        default_value = self.bl_rna.properties['edit_mode'].enum_items[default].value
-        value = self.get("edit_mode", default_value)
-        self.notify_listeners("edit_mode", value)
+#     def edit_mode_changed(self, context):
+#         default =  self.bl_rna.properties['edit_mode'].default
+#         default_value = self.bl_rna.properties['edit_mode'].enum_items[default].value
+#         value = self.get("edit_mode", default_value)
+#         self.notify_listeners("edit_mode", value)
   
-    edit_mode: bpy.props.EnumProperty(
-        name='Edit Mode',
-        items=[ ('MOVE', "Move", "", 0),
-                ('ADD', "Add", "", 1),
-                ('REMOVE', "Remove", "", 2),
-        ],
-        description="Edit Mode",
-        default='MOVE',
-        update=edit_mode_changed
-        )
+#     edit_mode: bpy.props.EnumProperty(
+#         name='Edit Mode',
+#         items=[ ('MOVE', "Move", "", 0),
+#                 ('ADD', "Add", "", 1),
+#                 ('REMOVE', "Remove", "", 2),
+#         ],
+#         description="Edit Mode",
+#         default='MOVE',
+#         update=edit_mode_changed
+#         )
 
-    on_mode_changed = Signal(args=["mode"])
-    on_active_index_changed = Signal(args=["index"])
-    on_slice_count_changed = Signal(args=["value"])
-    on_active_value_changed = Signal(args=["value"])
-    on_split_changed = Signal(args=["value"])
-    on_cap_sections_changed = Signal(args=["value"])
-    on_gap_distance_changed = Signal(args=["value"])
+#     on_mode_changed = Signal(args=["mode"])
+#     on_active_index_changed = Signal(args=["index"])
+#     on_slice_count_changed = Signal(args=["value"])
+#     on_active_value_changed = Signal(args=["value"])
+#     on_split_changed = Signal(args=["value"])
+#     on_cap_sections_changed = Signal(args=["value"])
+#     on_gap_distance_changed = Signal(args=["value"])
 
-    def on_get_mode(self):
-        default =  self.bl_rna.properties['mode'].default
-        default_value = self.bl_rna.properties['mode'].enum_items[default].value
-        value = self.get("mode", default_value)
+#     def on_get_mode(self):
+#         default =  self.bl_rna.properties['mode'].default
+#         default_value = self.bl_rna.properties['mode'].enum_items[default].value
+#         value = self.get("mode", default_value)
 
-        return value
+#         return value
             
-    mode: bpy.props.EnumProperty(
-        name='Mode',
-        items=[ ('FREE', "Free", "", 0),
-                ('UNIFORM', "Uniform", "", 1),
-                ('SYMMETRY', "Symmetry", "", 2),
-              ],
-        description="Mode",
-        default='FREE',
-        update=lambda s, c: s.on_mode_changed.emit(mode=s.mode)
-        )
+#     mode: bpy.props.EnumProperty(
+#         name='Mode',
+#         items=[ ('FREE', "Free", "", 0),
+#                 ('UNIFORM', "Uniform", "", 1),
+#                 ('SYMMETRY', "Symmetry", "", 2),
+#               ],
+#         description="Mode",
+#         default='FREE',
+#         update=lambda s, c: s.on_mode_changed.emit(mode=s.mode)
+#         )
 
-    slice_count: bpy.props.IntProperty(
-        name='Slice Count',
-        description='Number of slices',
-        default=1,
-        min=1,
-        max=100,
-        update=lambda s, c: prop_changed_ls(s, c, "slice_count", s.slice_count)
-    )
+#     slice_count: bpy.props.IntProperty(
+#         name='Slice Count',
+#         description='Number of slices',
+#         default=1,
+#         min=1,
+#         max=100,
+#         update=lambda s, c: prop_changed_ls(s, c, "slice_count", s.slice_count)
+#     )
 
-    active_position: bpy.props.FloatProperty(
-        name='Position',
-        description='Slice Position',
-        default=0.0,
-        min=0.0,
-        max=100.0,
-        subtype='PERCENTAGE',
-        update=lambda s, c: prop_changed_ls(s, c, "active_position", s.active_position)
-    )
+#     active_position: bpy.props.FloatProperty(
+#         name='Position',
+#         description='Slice Position',
+#         default=0.0,
+#         min=0.0,
+#         max=100.0,
+#         subtype='PERCENTAGE',
+#         update=lambda s, c: prop_changed_ls(s, c, "active_position", s.active_position)
+#     )
 
-    active_index: bpy.props.IntProperty(
-        name='Active Index',
-        description='Active Slice Index',
-        default=0,
-        min=0,
-        max=100,
-        update=lambda s, c: prop_changed_ls(s, c, "active_index", s.active_index)
-    )
+#     active_index: bpy.props.IntProperty(
+#         name='Active Index',
+#         description='Active Slice Index',
+#         default=0,
+#         min=0,
+#         max=100,
+#         update=lambda s, c: prop_changed_ls(s, c, "active_index", s.active_index)
+#     )
 
-    use_split: bpy.props.BoolProperty(
-        name='Split Loops',
-        description='Split the loops into two',
-        default=True,
-        update = lambda s, c: prop_changed_ls(s, c, "use_split", s.use_split)
-    )
+#     use_split: bpy.props.BoolProperty(
+#         name='Split Loops',
+#         description='Split the loops into two',
+#         default=True,
+#         update = lambda s, c: prop_changed_ls(s, c, "use_split", s.use_split)
+#     )
 
-    cap_sections: bpy.props.BoolProperty(
-        name='Cap Sections',
-        description='Cap the loops after being split',
-        default=False,
-        update = lambda s, c: prop_changed_ls(s, c, "cap_sections", s.cap_sections)
-    )
+#     cap_sections: bpy.props.BoolProperty(
+#         name='Cap Sections',
+#         description='Cap the loops after being split',
+#         default=False,
+#         update = lambda s, c: prop_changed_ls(s, c, "cap_sections", s.cap_sections)
+#     )
 
-    gap_distance: bpy.props.FloatProperty(
-        name='Gap Distance',
-        description='Distance between the split edge loops',
-        min=0.0,
-        default=0.0,
-        subtype='DISTANCE',
-        unit='LENGTH',
-        update=lambda s, c: prop_changed_ls(s, c, "gap_distance", s.gap_distance)
-    )
+#     gap_distance: bpy.props.FloatProperty(
+#         name='Gap Distance',
+#         description='Distance between the split edge loops',
+#         min=0.0,
+#         default=0.0,
+#         subtype='DISTANCE',
+#         unit='LENGTH',
+#         update=lambda s, c: prop_changed_ls(s, c, "gap_distance", s.gap_distance)
+#     )
 
 
 from .. keymaps.modal_keymapping import ModalKeymap

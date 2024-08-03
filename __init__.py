@@ -12,14 +12,14 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 
-bl_info = {
-    'name': 'Fast Loop',
-    'author': 'Jrome',
-    'description': 'Quickly insert loop cuts at the mouse position with a preview of the loop cuts.',
-    'blender': (4, 0, 0),
-    'version': (2, 1, 0),
-    'category': 'Mesh',
-}
+# bl_info = {
+#     'name': 'Fast Loop',
+#     'author': 'Jrome',
+#     'description': 'Quickly insert loop cuts at the mouse position with a preview.',
+#     'blender': (4, 0, 0),
+#     'version': (2, 1, 0),
+#     'category': 'Mesh',
+# }
 
 from . import addon
 
@@ -28,3 +28,4 @@ def register():
 
 def unregister():
     addon.unregister()
+

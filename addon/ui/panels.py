@@ -29,7 +29,6 @@ class VIEW3D_PT_FastLoopSetFlowOptions(Panel):
         layout.ui_units_x  = 7.0
         preferences = utils.common.prefs()
         col = layout.column()        
-        # col.label( text = "Set Flow Options" )
         col.prop(preferences, "set_edge_flow_enabled" , text = "Set Flow" , expand = True, toggle=True )
 
         box = col.box()

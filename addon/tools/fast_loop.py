@@ -37,17 +37,11 @@ class FL_FastLoop(FL_ToolBase, DrawFastLoopUI):
     bl_label = "Fast Loop"
     bl_description = ( "Add loop cuts or modify existing ones" )
     bl_icon = os.path.join(os.path.join(os.path.dirname(__file__), "icons") , "fl.fast_loop")
-    # bl_widget  = "FL_GGT_FastLoop"
     bl_keymap = (("exe.fast_loop",{"type": 'MOUSEMOVE', "value": 'ANY' },{"properties": []}),)
     
     @classmethod
     def draw_settings_toolheader(cls, context, layout, tool):
-        # row = layout.row(align=True)
-        # row.separator(factor=200.0)
-        # options = utils.ops.options()
-        # if options is not None:
-        #     row.prop(options, "mode", toggle=False, expand=True,)
-
+        
 
         popover_kw = {"space_type": 'VIEW_3D', "region_type": 'UI', "category": "Tool"}
         layout.popover_group(context=".set_flow_options", **popover_kw)

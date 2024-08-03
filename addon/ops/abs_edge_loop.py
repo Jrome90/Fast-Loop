@@ -138,7 +138,6 @@ class OT_Absolute_Edge_Loop(bpy.types.Operator, FastLoopCommon):
 
     
     def update(self, element_index, nearest_co=None):
-        # self.force_offset_value = -1
         bm = self.ensure_bmesh_(self.active_object)
         
         bm.edges.ensure_lookup_table()
@@ -163,7 +162,6 @@ class OT_Absolute_Edge_Loop(bpy.types.Operator, FastLoopCommon):
         return self.scale 
 
 
-    # @utils.safety.decorator
     def modal(self, context, event):
         if context.mode != 'EDIT_MESH' or self.cancelled:
             return self.cancel(context)

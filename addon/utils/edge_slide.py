@@ -34,6 +34,8 @@ class EdgeVertexSlideData():
     face_slide: List[tuple] = field(default_factory=lambda: [None, None])
     edge: int = None
     prev_edge: int = None
+
+    
     # def __repr__(self) -> str:
     #     vert_side_a = self.vert_side[0].index if self.vert_side[0] is not None else None
     #     vert_side_b = self.vert_side[1].index if self.vert_side[1] is not None else None

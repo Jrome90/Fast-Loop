@@ -1,6 +1,5 @@
 from __future__ import annotations
 from functools import singledispatch
-from collections import defaultdict
 from dataclasses import dataclass
 from functools import reduce
 from typing import *

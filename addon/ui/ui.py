@@ -82,29 +82,6 @@ class DrawFastLoopUI():
                  col.prop(prefs, "imperial_unit_default")
 
 
-
-            # box = layout.split()
-            # b = box.box()
-
-            # col = b.column(align=True)
-            # col.label(text="Edge Flow")
-
-            # preferences = utils.common.prefs()
-            # if preferences is not None:
-            #     col.prop(preferences, "set_edge_flow_enabled" , toggle=True, text="Set Edge Flow")
-
-            #     box = col.box()
-
-            #     row = box.row()
-            #     row.prop(preferences, "tension", text= "Tension", expand = True)
-            #     row = box.row()
-            #     row.prop(preferences, "iterations", text= "Iterations", expand = True)
-            #     row = box.row()
-            #     row.prop(preferences, "min_angle", text= "Min Angle", expand = True)
-
-
-
-
 class DrawLoopSliceUI():
 
     @classmethod
@@ -120,7 +97,6 @@ class DrawLoopSliceUI():
             col.prop(options, "edit_mode")
             col.prop(options, "mode")
 
-            # box = layout.split()
             b = box.box()
             col = b.column()
 
@@ -140,22 +116,3 @@ class DrawLoopSliceUI():
             col = b.column()
             col.label(text="Slider")
             col.prop(options, "active_position", text="Position")
-            
-            # box = layout.split()
-            # b = box.box()
-
-            # col = b.column(align=True)
-            # col.label(text="Edge Flow")
-
-            # preferences = utils.common.prefs()
-            # if preferences is not None:
-            #     col.prop(preferences, "set_edge_flow_enabled" , toggle=True, text="Set Edge Flow")
-
-            #     box = col.box()
-
-            #     row = box.row()
-            #     row.prop(preferences, "tension", text= "Tension", expand = True)
-            #     row = box.row()
-            #     row.prop(preferences, "iterations", text= "Iterations", expand = True)
-            #     row = box.row()
-            #     row.prop(preferences, "min_angle", text= "Min Angle", expand = True)

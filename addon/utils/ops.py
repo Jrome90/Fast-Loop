@@ -41,7 +41,7 @@ def cursor_warp(event: bpy.types.Event):
         bpy.context.window.cursor_warp(int(x), int(y))
 
 def get_m_button_map(button):
-    select_mouse_val = bpy.context.window_manager.keyconfigs.user.keymaps['3D View'].keymap_items['view3d.select'].type #bpy.context.window_manager.keyconfigs.active.preferences.select_mouse
+    select_mouse_val = bpy.context.window_manager.keyconfigs.user.keymaps['3D View'].keymap_items['view3d.select'].type
     if button == 'LEFTMOUSE':
         return 'LEFTMOUSE' if select_mouse_val == "LEFTMOUSE" else 'RIGHTMOUSE'
 
@@ -75,8 +75,6 @@ def clear_undo_history_keymap():
     undo_history_keymap = None
 
 
-#bpy.context.window_manager.keyconfigs.active.keymaps['Screen'].keymap_items['ed.undo']
-
 def fl_props():
     context = bpy.context
     if hasattr(context.window_manager, "fl_props"):
@@ -91,11 +89,13 @@ def set_fl_prop(property, value)-> bool:
             return True
     return False
 
+
 def options():
     context = bpy.context
     if hasattr(context.scene, "fl_options"):
         return context.scene.fl_options
     return None
+
 
 def set_option(option, value)-> bool:
     context = bpy.context
@@ -121,48 +121,6 @@ def set_ls_option(option, value)-> bool:
             return True
     return False
 
-
-# def generate_status_layout(shortcuts, layout):
-
-#     for shortcut in shortcuts:
-
-#         row = layout.row()
-#         row.alignment = 'LEFT'
-        
-#         icons_box = row.column()
-#         icons_box.alignment = 'LEFT'
-#         icons_box.scale_x = 1
-#         row.separator(factor=0.1)
-#         text_box = row.column()
-#         text_box.alignment = 'LEFT'
-#         text_box.scale_x = 1
-
-#         ui.add_shortcut_info(shortcut, text_box, icons_box)
-    
-#     return layout
-
-
-# from .. keymaps.modal_keymapping import ModalKeymap
-# def generate_status_layout_text_only(keymap: ModalKeymap , layout, extra_mapppings=None):
-#     def add_keymap_label(action, key):
-#         row = layout.row()
-#         row.alignment = 'LEFT'
-#         text_box = row.column()
-#         text_box.alignment = 'LEFT'
-#         text_box.scale_x = 1
-#         text_box.label(text=f"{action} ({key})")
-
-#     if extra_mapppings is not None:
-#         for action, mapping in extra_mapppings.items():
-#             add_keymap_label(action, mapping)
-
-#     for action, action_name in utils.ui.get_ordered_fl_keymap_actions().items():
-#         mapping = keymap.get_mapping_from_action(action)
-#         key = mapping[0].upper()
-#         action = action.replace("_", " ").capitalize()
-#         add_keymap_label(action_name, key)
-    
-#     return layout
 
 def get_context_overrides(*objects, area=None):
 

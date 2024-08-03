@@ -9,8 +9,8 @@ from contextlib import suppress
 import bpy
 from mathutils import geometry, Vector 
 
-from ..utils import draw_3d, mesh, ops, common, ui, math
-from ..props.fl_properties import MultiLoopProps, SubProps, SnapProps, AllPropsNoSnap
+from ..utils import (draw_3d, mesh, ops, common, ui, math)
+from ..props.fl_properties import (MultiLoopProps, SubProps, SnapProps, AllPropsNoSnap)
 
 from .fast_loop_common import FastLoopCommon, CurrentPos
 from .fast_loop_helpers import (Mode, get_active_mode, mode_enabled)
@@ -19,7 +19,7 @@ from .actions.insert_single_loop import InsertSingleLoopAction
 
 from ..snapping.snapping  import SnapContext
 
-from . fast_loop_algorithms import (ComputeEdgePostitonsMultiAlgorithm, 
+from .fast_loop_algorithms import (ComputeEdgePostitonsMultiAlgorithm, 
                                     ComputeEdgePostitonsSingleAlgorithm, 
                                     ComputeEdgePostitonsOverrideAlgorithm)
 
@@ -389,7 +389,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 self.update_slider()
         
 
-
     def calculate_scale_value(self):
 
         last_numeric_results = self.last_numeric_input_results
@@ -409,7 +408,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         else:
             return self.multi_loop_props.scale
 
-    # @utils.safety.decorator
+
     def modal(self, context, event):
         if context.mode != 'EDIT_MESH' or (self.invoked_by_tool and not \
         any(tool_name in {'fl.fast_loop_tool'} \
@@ -654,17 +653,13 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         points = self.edge_data.points 
         edges = self.edge_data.edges
 
-        # t1 = time.perf_counter(), time.process_time()
         selected_edges = super().create_geometry(edges, points, edge_verts, num_segments, select_new_edges=select_new_edges)
-
-        # t2 = time.perf_counter(), time.process_time()
-        # print(f" time: {t2[0] - t1[0]:.2f} seconds")
-        # print(f" CPU time: {t2[1] - t1[1]:.2f} seconds")
 
         # Clear the draw points to hide a visual bug. :(
         self.loop_draw_points.clear()
 
         return selected_edges
+
 
     # TODO: Refactor. This should not be in this class.
     def update_slider(self):
@@ -711,6 +706,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         else:
            self.slider_widget.remove_all_thumbs()
     
+
     # TODO: Move all the code below out of the class
     def create_single_loop_panel(self, context):
         panel = VLayoutPanel(context, 100, 100, (70, 300), 1, "Single")
@@ -734,6 +730,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         self.populate_panel(context, panel, ignore)
         return panel
     
+
     def create_extras_panel(self, context):
         extras_panel = VLayoutPanel(context, 100, 100, (70,100), 1, None)
         extras_panel.bg_color = (0.8, 0.0, 0.0, 0.0)
@@ -745,6 +742,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         
         self.populate_panel(context, extras_panel, ignore, hotkey_only, misc)
         return extras_panel
+
 
     def populate_panel(self, context, panel, ignore, hotkey_only=None, misc=None):
 
@@ -766,7 +764,3 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         for action_name, hotkey in misc.items():
             hotkey_label = make_hotkey_label(self, context, action_name, hotkey)
             panel.add_child_widget(action_name, hotkey_label)
-        
-#  ["even", "flip", "mirrored", "midpoint", "perpendicular", "multi_loop_offset",
-        # "scale", "insert_verts", "freeze_edge", "snap_points", "lock_snap_points", 
-        # "increase_loop_count", "decrease_loop_count"]

@@ -80,5 +80,6 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
         
         return handled
     
+    
     def CalculateDefaultScaleValue(self) -> float:
         return 1 - (2/(self.context.segments + 1))

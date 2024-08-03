@@ -75,7 +75,6 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
     points_3d = []
 
     slide_verts: Dict[int ,EdgeVertexSlideData] = {}
-    # ss_slide_directions: List[Vector] = []
 
     @classmethod
     def poll(cls, context):
@@ -104,7 +103,6 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         context.tool_settings.snap_elements_tool = 'DEFAULT'
 
     def invoke(self, context, event):
-        # self.set_status(context)
         self.setup(context)
         self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, (context, ), 'WINDOW', 'POST_PIXEL')
         self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_3d, (context, ), 'WINDOW', 'POST_VIEW')
@@ -126,10 +124,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
             self.disable_snapping(context)
             
         bpy.context.window.cursor_modal_restore()
-        # context.workspace.status_text_set(None)
-
         context.area.tag_redraw()
-        #self.report({'INFO'}, 'Edge Slide Finished')
 
         if getattr(self, 'draw_handler_2d', None):
             self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_2d, 'WINDOW')
@@ -137,7 +132,6 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         if getattr(self, 'draw_handler_3d', None):
             self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler_3d, 'WINDOW')
 
-        # self.notify_listeners()
         return {'FINISHED'}
 
     def clear_draw_2d(self):
@@ -171,7 +165,6 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
             self.snap_location = None
             if value is not None:
                 self.snap_location = value
-                # self.do_snap(context, value)
             else:
                 self.snap_point = None
 
@@ -184,26 +177,15 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
             if self.is_sliding:
                 self.is_sliding = False
             self.nearest_vert_3d = None
-            # self.nearest_vert_2d = None
-                
+            
             return {'PASS_THROUGH'}
         
         handled = False
-        # if not self.is_sliding:
-        #     bm = self.ensure_bmesh()
-        #     active_vert = utils.mesh.get_active_vert(self.bm)
-        #     if active_vert is not None:
-        #         self.nearest_vert = active_vert
-        #         self.nearest_vert_co = active_vert.co.copy()
-        #         self.clear_draw()
-
-        #         self.calculate_axis_draw_points(context, active_vert, self.world_mat)
 
         if self.is_sliding and event.ctrl and event.value == 'PRESS' and not self.snap_enabled:
             self.snap_enabled = not self.snap_enabled
             if self.snap_enabled:
-                context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)
-                # bpy.context.scene.tool_settings.use_snap = True                  
+                context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)              
                 handled = True
         elif self.is_sliding and not event.ctrl and self.snap_enabled:
             self.disable_snapping(context)
@@ -354,6 +336,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         else:
             return {'PASS_THROUGH'}
 
+
     def disable_snapping(self, context):
         bpy.context.scene.tool_settings.use_snap = False
         context.window_manager.gizmo_group_type_unlink_delayed(RP_GGT_SnapGizmoGroup.bl_idname)
@@ -485,7 +468,6 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
 
                 if sv.dir_side[1] is None and sv.dir_side[0] is not None:
                     sv.dir_side[1] = sv.dir_side[0].lerp(v.co, 1.5)
-                    # sv.vert_side[1] = v
                     sv.edge_len[1] = sv.edge_len[0]
 
         return slide_verts
@@ -502,8 +484,6 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         proj_vec.normalize()
 
         factor = utils.math.ray_plane_intersection(plane_co, plane_n, ray_origin, proj_vec)
-
-        # print(f"factor: {factor}")
 
         to_origin = Matrix.Translation(-world_mat.to_translation()) @ world_mat
         from_origin = to_origin.inverted_safe()

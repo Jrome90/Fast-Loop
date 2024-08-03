@@ -223,8 +223,8 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
         if prefs().draw_distance_segment:
             DrawDirectionArrowMixin.draw_ui(self, bl_context)
 
+
     def draw_3d(self, bl_context):
         DrawLoopsMixin.draw_3d(self, bl_context)
         if prefs().draw_distance_segment:
             DrawDirectionArrowMixin.draw_3d(self, bl_context)
-

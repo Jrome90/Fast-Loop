@@ -14,15 +14,18 @@ class InsertSingleLoopAction(InsertAction):
         context.edge_pos_algorithm = ComputeEdgePostitonsSingleAlgorithm()
         super().__init__(context)
 
+
     def enter(self):
         self.context.main_panel_hud.set_child_visibility_by_name("Single", True)
         self.context.main_panel_hud.set_title_bar_text("Single")
         self.context.main_panel_hud.layout_widgets()
         super().enter()
 
+
     def exit(self):
         self.context.main_panel_hud.set_child_visibility_by_name("Single", False)
         super().exit()
+
 
     def handle_input(self, bl_context, bl_event):
         handled = False

@@ -5,9 +5,7 @@ from . import ui
 classes = (
     panels.VIEW3D_PT_FastLoopSetFlowOptions,
     panels.VIEW3D_PT_HUDSettings,
-    # panels.VIEW3D_PT_FastLoopToolPanel,
     ui.FL_UL_Percentages,
-    # panels.VIEW3D_PT_LoopSlicePanel,
 )
 
 

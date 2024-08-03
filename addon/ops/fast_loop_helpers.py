@@ -1,5 +1,3 @@
-import bpy
-
 from .. utils import  ops
 from enum import Enum
 
@@ -38,8 +36,8 @@ def set_mode(mode):
 # def get_options():
 #     return options()
     
-def set_option(option, value):
-    return ops.set_option(option, value)
+# def set_option(option, value):
+#     return ops.set_option(option, value)
 
 def get_props():
     return ops.fl_props()

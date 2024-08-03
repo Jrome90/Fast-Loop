@@ -139,9 +139,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
         
 
     def invoke(self, context, event):
-        # self.report({'INFO'}, 'Edge Slide Started')
-        # self.set_status(context)
-        # self.init_setup(context)
         self.setup(context)
         self.draw_handler_2d = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, (context, ), 'WINDOW', 'POST_PIXEL')
         self.draw_handler_3d = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_3d, (context, ), 'WINDOW', 'POST_VIEW')
@@ -157,9 +154,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
 
     def finished(self, context):
-        # super().finished(context)
-        # self.clear_draw()
-
         SnapContext.remove(self)
 
         bpy.context.window.cursor_modal_restore()
@@ -231,7 +225,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
         if match_event_to_keymap(event, get_undo_keymapping()):
             bpy.ops.ed.undo()
-            # self.init_setup(context)
             handled = True
 
         if not utils.common.prefs().use_spacebar:

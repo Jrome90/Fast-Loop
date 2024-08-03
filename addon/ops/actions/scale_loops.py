@@ -115,6 +115,7 @@ class ScaleLoopsAction(DrawLoopsMixin, BaseAction):
            
             draw_2d.draw_text_on_screen(value_str, position, text_size)
 
+
     def on_numeric_input_changed(self, results):
 
         self.context.last_numeric_input_results = copy(results)

@@ -10,14 +10,14 @@ from ...signalslot.signalslot import Signal
 
 from .. keymaps.modal_keymapping import ModalOperatorKeymapCache as km_cache
 from .. import utils
-
+from ... import __package__ as base_package
 
 def keymap_changed(self, context, keymap_event):
     print(f"Event: {keymap_event} value{self.mirrored_keymap}")
     bpy.ops.ui.keymap_input_operator('INVOKE_DEFAULT')
 
 class AddonPrefs(bpy.types.AddonPreferences):
-    bl_idname = utils.common.module()
+    bl_idname =  base_package
 
     on_hud_scale_changed = Signal()
     on_display_panel_pos_changed = Signal()

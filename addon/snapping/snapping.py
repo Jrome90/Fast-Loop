@@ -199,11 +199,10 @@ class SnapContext(SnapPointsMixin):
     def is_snap_points_locked(self):
         return self._is_snap_points_locked
 
-    # def get_intersection_data(self) -> Isect_Data:
-    #     return self._isect_data
 
     def lock_snap_points(self):
         self._is_snap_points_locked = True
+
 
     def unlock_snap_points(self):
         self._is_snap_points_locked = False
@@ -249,11 +248,13 @@ class SnapContext(SnapPointsMixin):
                 snap_object_data.bvh_tree = BVHTree.FromBMesh(
                     bm)
     
+
     def _get_snap_object_by_name(self, name) -> SnapObjectEditMeshData:
         if name in self.snap_objects:
             return self.snap_objects[name]
         return None
     
+
     def do_snap_objects(self, bl_objects, mvals, mvals_win=None) -> None | Tuple :
         # inside_toolbar = utils.ui.inside_toolbar(mvals)
         # inside_npanel = utils.ui.inside_npanel(mvals)
@@ -281,6 +282,7 @@ class SnapContext(SnapPointsMixin):
                 raise
 
         return None
+
 
     def do_snap_object(self,bl_object: Object, mvals, mvals_win=None):
         # inside_toolbar = utils.ui.inside_toolbar(mvals)
@@ -371,6 +373,7 @@ class SnapContext(SnapPointsMixin):
             
         return None
 
+
     def _snap_objects(self, snap_objects) -> None | Tuple:
 
         ray_origin, ray_vector = utils.raycast.get_ray(
@@ -428,6 +431,7 @@ class SnapContext(SnapPointsMixin):
 
         self.nearest_2d = None
         return None
+
 
     def get_nearest_element(self, snap_object, ray_co, face, snap_elements_flag, nearest_2d):
         shortest_dist_edge = float('INF')

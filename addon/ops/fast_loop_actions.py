@@ -37,6 +37,7 @@ class DrawDirectionArrowMixin():
         for arrow in self.context.draw_direction_arrow_lines:
             arrow.draw()
     
+
     def draw_ui(self, bl_context):
         for arrow in self.context.draw_direction_arrow_lines:
             arrow.draw_2d()
@@ -87,29 +88,3 @@ class BaseAction(metaclass=ABCMeta):
 
     def draw_ui(self, bl_context):
         pass
-
-    
-# class VertexSnapSelectAction(BaseAction):
-
-#     def __init__(self, context) -> None:
-#         self.context: FastLoopOperator = context
-
-    
-#     def enter(self):
-#         self.context.snap_context.enable_vertex_sel_mode()
-
-
-#     def exit(self):
-#         self.context.snap_context.disable_vertex_sel_mode()
-
-#     def update(self):
-#         pass
-
-
-#     def handle_input(self, bl_context, bl_event):
-#         handled = False
-#         if bl_event.type == 'PERIOD'and bl_event.value == 'RELEASE':
-#             self.context.pop_action()
-#             handled = True
-        
-#         return handled
