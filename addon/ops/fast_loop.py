@@ -4,9 +4,7 @@ if TYPE_CHECKING:
     from ..props.fl_properties import AllPropsNoSnap
     from bmesh.types import BMFace, BMLoop
 
-
 from contextlib import suppress
-import time
 
 import bpy
 from mathutils import geometry, Vector 
@@ -262,6 +260,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         width = ui.get_slider_width()
         x_pos, y_pos = ui.get_slider_position()
         self.slider_widget = BL_UI_SliderMulti(context, x_pos, y_pos, width, 30, text_format="{:0." + str(1) + "f}%")
+        self.slider_widget.visible = common.prefs().show_bar
         self.slider_widget.is_static = True
         self.slider_widget.color = (0.5, 0.5, 0.5, 1.0)
         self.slider_widget.thumb_color= (1.0, 1.0, 1.0, 1.0)
@@ -563,6 +562,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
         loop_a: BMLoop = mesh.get_face_loop_for_edge(face, self.current_edge)
         if loop_a is None:
             return
+        
         vec_a = (mesh.get_loop_other_edge_loop(loop_a, loop_a.vert).vert.co - loop_a.vert.co)
 
         loop_b = mesh.get_face_loop_for_vert(face, loop_a.edge.other_vert(loop_a.vert))
