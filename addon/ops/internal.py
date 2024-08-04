@@ -30,6 +30,7 @@ class FastLoopRunner(bpy.types.Operator):
     def poll( cls , context ) :
         return not utils.ops.fl_props().is_running
 
+
     def modal(self, context, event):
         if context.mode != 'EDIT_MESH' or (not \
         any(tool_name in {'fl.fast_loop_tool'} \
@@ -43,13 +44,19 @@ class FastLoopRunner(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        if self.is_running:
+        if utils.common.min_ver_4_2():
+            if not utils.common.is_modal_running("FL_OT_fast_loop"):
+                bpy.ops.fl.fast_loop('INVOKE_DEFAULT', invoked_by_tool=True)
             return {'CANCELLED'}
         else:
-            context.window_manager.modal_handler_add(self)
-            # if not self.prompted:
-                # bpy.ops.ui.alt_nav_detected('INVOKE_DEFAULT')
-        return{'RUNNING_MODAL'}
+            # Falling back to the old method
+            if self.is_running:
+                return {'CANCELLED'}
+            else:
+                context.window_manager.modal_handler_add(self)
+                # if not self.prompted:
+                    # bpy.ops.ui.alt_nav_detected('INVOKE_DEFAULT')
+            return{'RUNNING_MODAL'}
 
 
     def cancel(self, context):
@@ -68,8 +75,10 @@ class UI_OT_override_reset(bpy.types.Operator):
         self.reset(context)
         return {'FINISHED'}
 
+
     def invoke(self, context, event):
         return self.execute(context)
+
 
     def reset(self, context):
         window_manager = context.window_manager
@@ -87,8 +96,10 @@ class UI_OT_reset_operator(bpy.types.Operator):
         self.reset(context)
         return {'FINISHED'}
 
+
     def invoke(self, context, event):
         return self.execute(context)
+
 
     def reset(self, context):
         utils.ops.fl_props().is_running = False
@@ -117,11 +128,13 @@ class UI_OT_keymap_input_operator(bpy.types.Operator):
         description="Active Operator Keymap is for"
     )
 
+
     def invoke(self, context, event):
         wm = context.window_manager
         self.previous_shortcut = getattr(wm.keymap_strings, self.active_keymap)
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
+
 
     def modal(self, context, event):
         
@@ -141,6 +154,7 @@ class UI_OT_keymap_input_operator(bpy.types.Operator):
             return {'FINISHED'}
     
         return {'RUNNING_MODAL'}
+    
     @staticmethod
     def append_modifier_keys(key_string, ctrl, shift, alt):
         if ctrl:
@@ -150,6 +164,7 @@ class UI_OT_keymap_input_operator(bpy.types.Operator):
         if alt:
             key_string += "+Alt"
         return key_string
+
 
 class UI_OT_save_keymap_operator(bpy.types.Operator):
     bl_idname = "ui.save_keymap_operator"
@@ -162,8 +177,10 @@ class UI_OT_save_keymap_operator(bpy.types.Operator):
         self.save()
         return {'FINISHED'}
 
+
     def invoke(self, context, event):
         return self.execute(context)
+
 
     def save(self):
         found = False
@@ -184,6 +201,7 @@ class UI_OT_distance_display_settings_operator(bpy.types.Operator):
         message = f"{prefs.meters} {prefs.centimeters} {prefs.millimeters} {prefs.micrometers}"
         self.report({'INFO'}, message)
         return {'FINISHED'}
+
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -217,6 +235,7 @@ class UI_OT_AltNavDetected_operator(bpy.types.Operator):
     @prompted.setter
     def prompted(self, value):
         utils.ops.set_fl_prop('prompted', value)
+
 
     def execute(self, context):
         self.prompted = True
