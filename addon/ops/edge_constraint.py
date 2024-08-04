@@ -1,13 +1,14 @@
 from typing import *
 from dataclasses import dataclass, field
 
+from ...signalslot.signalslot import Slot
+
 import bpy, bmesh
 from bmesh.types import *
 from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_point_line, intersect_line_plane
 
 from .. ui.gizmos.gizmo_snapping import RP_GGT_SnapGizmoGroup
-from .. props import addon
 from .. import utils
 from .. utils import draw_3d, draw_2d
 from .. utils.ops import get_m_button_map as btn, match_event_to_keymap, get_undo_keymapping
@@ -84,6 +85,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
                 and context.active_object.mode == 'EDIT'                
               )
     
+
     def setup(self, context):
         self.world_mat = context.object.matrix_world.normalized()
         self.world_inv = context.object.matrix_world.inverted_safe()
@@ -97,10 +99,9 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         self.bm.select_mode = {'EDGE'}
         self.bm.select_flush_mode()
 
-        addon.FL_Options.register_listener(self, self.event_raised)
-
         # For blender 4.0
         context.tool_settings.snap_elements_tool = 'DEFAULT'
+
 
     def invoke(self, context, event):
         self.setup(context)
@@ -134,6 +135,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
     def clear_draw_2d(self):
         self.axis_draw_points.clear()
         self.axis_draw_colors.clear()
@@ -159,14 +161,15 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
                 for points, color in zip(self.axis_draw_points, self.axis_draw_colors):
                     draw_2d.draw_line(points, line_color=color, line_width=1)
 
-    
-    def event_raised(self, event, value, context=None):
-        if event == "snap_gizmo_update":
-            self.snap_location = None
-            if value is not None:
-                self.snap_location = value
-            else:
-                self.snap_point = None
+
+    def on_snap_update_received(self, **kwargs):
+        location = kwargs["snap_location"]
+
+        self.snap_location = None
+        if location is not None:
+            self.snap_location = location
+        else:
+            self.snap_point = None
 
 
     def modal(self, context, event):
@@ -185,7 +188,8 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
         if self.is_sliding and event.ctrl and event.value == 'PRESS' and not self.snap_enabled:
             self.snap_enabled = not self.snap_enabled
             if self.snap_enabled:
-                context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)              
+                context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)
+                RP_GGT_SnapGizmoGroup.on_snap_update.connect(Slot(self.on_snap_update_received))
                 handled = True
         elif self.is_sliding and not event.ctrl and self.snap_enabled:
             self.disable_snapping(context)
@@ -339,6 +343,7 @@ class EdgeConstraintTranslationOperator(bpy.types.Operator):
 
     def disable_snapping(self, context):
         bpy.context.scene.tool_settings.use_snap = False
+        RP_GGT_SnapGizmoGroup.on_snap_update.disconnect(self.on_snap_update_received)
         context.window_manager.gizmo_group_type_unlink_delayed(RP_GGT_SnapGizmoGroup.bl_idname)
         self.snap_enabled = False
 

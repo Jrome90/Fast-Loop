@@ -1,4 +1,5 @@
 from functools import partial
+from ....signalslot.signalslot import Signal
 
 import bpy
 from bpy.types import GizmoGroup
@@ -8,21 +9,6 @@ from ... import utils
 def get_props():
     return utils.ops.fl_props()
 
-def execute_update_shared_snap_data(element_index, element_type, location):
-
-    window_manager = bpy.context.window_manager
-    shared_snap_data = window_manager.Shared_Snap_Data
-    shared_snap_data.element_index = element_index
-    shared_snap_data.element_type = element_type
-    if location is not None and element_index is not None:
-        shared_snap_data.location = location
-        shared_snap_data.is_snapping = True
-    else:
-        shared_snap_data.is_snapping = False
-    shared_snap_data.use_context = True
-
-    #Trigger an update event
-    shared_snap_data.updated = True
 
 class RP_GGT_SnapGizmoGroup(GizmoGroup):
     
@@ -32,40 +18,31 @@ class RP_GGT_SnapGizmoGroup(GizmoGroup):
     bl_region_type = 'WINDOW'
     bl_options = {'3D'}
 
+    on_snap_update = Signal(args=['[snap_location]'])
 
     def __init__(self) -> None:
         super().__init__()
 
         self.snap_gizmo = None
-        self.highlight = None
+
 
     @classmethod
     def poll(cls, context):
         return True
   
+
     def setup(self, context):
-        window_manager = bpy.context.window_manager
-        shared_snap_data = window_manager.Shared_Snap_Data
-        shared_snap_data.element_index = -1
-        shared_snap_data.element_type = 'NONE'
-        shared_snap_data.location = (0,0,0)
-        shared_snap_data.is_snapping = False
-        shared_snap_data.use_context = False
         self.snap_gizmo = self.gizmos.new("GIZMO_GT_snap_3d")
         
-
-    def invoke_prepare(self, context, gizmo):
-        pass
-
-    
-    def refresh(self, context):
-        pass
 
 
     def draw_prepare(self, context):
         if self.snap_gizmo is not None:
             index, elem_type = get_element_type_and_index(self.snap_gizmo.snap_elem_index)
-            update_shared_snap_data(index, elem_type, self.snap_gizmo.location)
+            snap_location = self.snap_gizmo.location
+            if snap_location is not None and elem_type is not None:
+                self.on_snap_update.emit(snap_location=snap_location)
+
 
 def is_snap_data_changed(context, element_type, element_index)-> bool:
     window_manager = context.window_manager
@@ -74,9 +51,6 @@ def is_snap_data_changed(context, element_type, element_index)-> bool:
     if shared_snap_data.element_type != "NONE" or element_type != "NONE":
         return True
     return False
-
-def update_shared_snap_data(element_index, element_type, location):
-    bpy.app.timers.register(partial(execute_update_shared_snap_data, element_index, element_type, location), first_interval=0.01)
 
 
 def get_element_type_and_index(elem_type):

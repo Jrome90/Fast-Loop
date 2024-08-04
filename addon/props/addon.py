@@ -89,73 +89,6 @@ class Loop_Cut_Slots_Prop(bpy.types.PropertyGroup):
                     loop_cut.distance = (i + 1)
 
 
-class SharedSnapData(bpy.types.PropertyGroup):
-
-    def on_snap_data_update(self, context):
-        if self.updated:
-            if self.is_snapping:
-                utils.ops.options().on_snap_data_update(self.location, self.use_context)
-            else:
-                utils.ops.options().on_snap_data_update(None, self.use_context)
-            self.updated = False
-
-  
-    updated: bpy.props.BoolProperty(
-        name='Snap Data Updated',
-        description='Set to True to trigger an update event',
-        default=False,
-        update=on_snap_data_update,
-        options={'SKIP_SAVE'}
-
-    )
-
-    use_context: bpy.props.BoolProperty(
-        name='Use Context',
-        description='Send context data to listener if set to True',
-        default=False,
-        options={'SKIP_SAVE'}
-
-    )
-
-    element_type: bpy.props.EnumProperty(
-        name='Element Type',
-        items=[
-        ('VERTEX', "Vertex", "", 1),
-        ('EDGE', "Edge", "", 2),
-        ('FACE', "Face", "", 3),
-        ('NONE', "None", "", 4),
-        ],
-        default= 'NONE',
-        description='Type of element being snapped to',
-        options={'SKIP_SAVE'}
-
-    )
-
-    element_index: bpy.props.IntProperty(
-        name='Element Index',
-        description='Index of the element being snapped to',
-        default=-1,
-        options={'SKIP_SAVE'}
-
-
-    )
-    
-    location: bpy.props.FloatVectorProperty(
-        name='Snap Location',
-        description='Location of point being snapped to',
-        subtype='XYZ',
-        options={'SKIP_SAVE'}
-
-    )
-
-    is_snapping: bpy.props.BoolProperty(
-        name='Is Snapping',
-        description='Is a point being snapped to',
-        default = False,
-        options={'SKIP_SAVE'}
-    )
-
-
 class FL_Props(bpy.types.PropertyGroup):
     is_running: bpy.props.BoolProperty(
         name='op running',
@@ -436,7 +369,8 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
 
 
 # --------- Used by the experimental operator Absolute loop insert
-    distance_from_loop: bpy.props.FloatProperty(name='Distance', 
+    distance_from_loop: bpy.props.FloatProperty(
+    name='Distance', 
     default=0.1, 
     min=0.0,
     subtype='DISTANCE',
@@ -455,13 +389,6 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
     def on_loopcut_value_changed(self):       
         self.notify_listeners("loopcut_value_changed", None)
 
-    
-    def on_snap_data_update(self, location, use_context):
-        context = None
-        if use_context:
-            context = utils.ops.get_context_overrides(bpy.context.selected_editable_objects)
-        self.notify_listeners("snap_gizmo_update", location, context)
-
 
     def reset_to_defaults(self):
         for attribute in self.bl_rna.properties.keys():
@@ -472,12 +399,12 @@ class FL_Options(obs.Subject, bpy.types.PropertyGroup):
                     setattr(self, attribute, default_value)
 
 
-def prop_changed_ls(self, context, prop, value):
-    if self.skip_notify:
-        self.skip_notify = False
-        return
+# def prop_changed_ls(self, context, prop, value):
+#     if self.skip_notify:
+#         self.skip_notify = False
+#         return
 
-    self.notify_listeners(prop, value)
+#     self.notify_listeners(prop, value)
 
 # def active_index_changed(self, context, value):
 #     if self.skip_notify:

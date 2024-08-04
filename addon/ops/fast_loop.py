@@ -1,10 +1,13 @@
 from __future__ import annotations
 from typing import List, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from ..props.fl_properties import AllPropsNoSnap
     from bmesh.types import BMFace, BMLoop
 
 from contextlib import suppress
+
+from ...signalslot.signalslot import Slot
 
 import bpy
 from mathutils import geometry, Vector 
@@ -318,17 +321,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     def event_raised(self, event, value, context=None):
         if event == "loopcut_value_changed":
             self.update(self.current_edge_index, None)
-        
-        elif event == "snap_gizmo_update":
-            if value is not None and self.snap_enabled:
-                start_pos, end_pos = self.loop_data.get_active_loop_endpoints()
-                snap_point, _= geometry.intersect_point_line(value, start_pos, end_pos)
-                self.snap_position = snap_point
-                self.is_snapping = True
-
-                self.update(self.current_edge_index, snap_point)
-            else:
-                self.is_snapping = False
         else:
             self.single_loop_panel.update_widget(event, value)
             self.single_loop_panel.layout_widgets()
@@ -337,6 +329,21 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
             self.extras_panel.update_widget(event, value)
 
         self.edge_pos_algorithm = self.get_edge_pos_algorithm()
+
+
+    def on_snap_update_received(self, **kwargs):
+        location = kwargs["snap_location"]
+
+        if location is not None and self.snap_enabled:
+                start_pos, end_pos = self.loop_data.get_active_loop_endpoints()
+                snap_point, _= geometry.intersect_point_line(location, start_pos, end_pos)
+                self.snap_position = snap_point
+                self.is_snapping = True
+
+                self.update(self.current_edge_index, snap_point)
+        else:
+            self.is_snapping = False
+            
 
     #TODO Get this working properly
     # def on_thumb_move(self, **kwargs):
@@ -462,7 +469,8 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 self.frozen_edge_index = self.current_edge_index
                 self.frozen_face_index = self.current_face_index
 
-                context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)                   
+                context.window_manager.gizmo_group_type_ensure(RP_GGT_SnapGizmoGroup.bl_idname)
+                RP_GGT_SnapGizmoGroup.on_snap_update.connect(Slot(self.on_snap_update_received))                
 
             handled = True
 
@@ -535,6 +543,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
 
     def disable_snapping(self, context):
+        RP_GGT_SnapGizmoGroup.on_snap_update.disconnect(self.on_snap_update_received)
         context.window_manager.gizmo_group_type_unlink_delayed(RP_GGT_SnapGizmoGroup.bl_idname)
         bpy.context.scene.tool_settings.use_snap = False
         self.snap_enabled = False

@@ -10,7 +10,6 @@ classes = (
     addon.Loop_Cut_Slots_Prop,
     addon.FL_Props,
     addon.FL_Options,
-    addon.SharedSnapData,
 )
 
 def register():
@@ -26,9 +25,6 @@ def register():
     bpy.types.WindowManager.Loop_Cut_Slots_Index = bpy.props.IntProperty(name='Loop Index', default=0)
     bpy.types.WindowManager.Loop_Cut_Lookup_Index = bpy.props.IntProperty(name='Loop Cut Slots Lookup Index', default=0)
 
-    bpy.types.WindowManager.Shared_Snap_Data = bpy.props.PointerProperty(type=addon.SharedSnapData)
-
-
 def unregister():
     del bpy.types.WindowManager.keymap_strings
     del bpy.types.Scene.fl_options
@@ -36,7 +32,6 @@ def unregister():
     del bpy.types.WindowManager.Loop_Cut_Slots
     del bpy.types.WindowManager.Loop_Cut_Slots_Index
     del bpy.types.WindowManager.Loop_Cut_Lookup_Index
-    del bpy.types.WindowManager.Shared_Snap_Data
    
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
