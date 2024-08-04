@@ -105,7 +105,6 @@ class UI_OT_reset_operator(bpy.types.Operator):
         utils.ops.fl_props().is_running = False
 
 
-
 class UI_OT_keymap_input_operator(bpy.types.Operator):
     bl_idname = 'ui.keymap_input_operator'
     bl_label = ''
@@ -155,6 +154,7 @@ class UI_OT_keymap_input_operator(bpy.types.Operator):
     
         return {'RUNNING_MODAL'}
     
+
     @staticmethod
     def append_modifier_keys(key_string, ctrl, shift, alt):
         if ctrl:
@@ -218,7 +218,7 @@ class UI_OT_distance_display_settings_operator(bpy.types.Operator):
             row.prop(prefs, unit, toggle=True)
 
 
-
+# TODO: Get this working.
 class UI_OT_AltNavDetected_operator(bpy.types.Operator):
     bl_idname = 'ui.alt_nav_detected'
     bl_label = 'Alt navigation was detected'
@@ -260,5 +260,5 @@ class UI_OT_AltNavDetected_operator(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
-        row = layout.row()
+        layout.row()
 

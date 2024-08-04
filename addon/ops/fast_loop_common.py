@@ -28,7 +28,6 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     def fast_loop_options(self)-> addon.FL_Options:
         return get_options()
 
-    is_running = False
     @property
     def is_running(self):
         return get_props().is_running
@@ -45,7 +44,6 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     def flipped(self, value):
         self.fast_loop_options.flipped = value
 
-    use_even = False
     @property
     def use_even(self):
         return self.fast_loop_options.use_even
@@ -54,7 +52,6 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     def use_even(self, value):
         self.fast_loop_options.use_even = value
     
-    cancelled = False
     @property
     def cancelled(self):
         return self.fast_loop_options.cancel
@@ -271,108 +268,6 @@ class FastLoopCommon(Actions, MultiObjectEditing):
 
         return selected_edges if selected_edges else None
 
-# region - Old create geometry algo
-    # def create_geometry2(self, context, edges, points, edge_verts_co, num_segments, select_new_edges=True):
-    #     '''
-    #     Takes in a list of edges to subdivide, a list of points for each edge, and a list of the edge and original coords of the a/b verts for each edge.
-
-    #     '''
-
-    #     def divide_chunks(l, n):
-    #         for i in range(0, len(l), n): 
-    #             yield set(l[i:i + n])
-
-    #     def distance_sq(p1, p2):
-    #         return (p1 - p2).length_squared            
-
-    #     bm: BMesh = self.ensure_bmesh()
-
-        
-    #     uv_layer = bm.loops.layers.uv.verify()
-
-    #     ret = bmesh.ops.subdivide_edges(bm, edges=edges, cuts=num_segments, use_grid_fill=False)
-    #     geom_inner = ret["geom_inner"]
-    #     bm.verts.ensure_lookup_table()
-
-    #     inner_verts = []
-    #     if select_new_edges:
-    #         bpy.ops.mesh.select_all(action='DESELECT')
-
-    #     for elem in geom_inner:
-    #         if isinstance(elem, BMVert):
-    #             inner_verts.append(elem.index)
-    #             if select_new_edges:
-    #                 elem.select = True
-
-    #         elif isinstance(elem, BMEdge):
-    #             if select_new_edges:
-    #                 elem.select = True
-
-    #     chunks = list(divide_chunks(inner_verts, num_segments))        
-    #     edge_splits = defaultdict(list)
-    #     moved_verts = set()
-    #     for g, (vert_a, vert_b) in enumerate(edge_verts_co):
-    #         # vert_a = bm.verts[vert_a_idx]
-    #         # vert_b = bm.verts[vert_b_idx]
-    #         vec_a = vert_a.co
-    #         vec_b = vert_b.co
-    #         found_at = None
-    #         vert_set: set = set()
-    #         for i, vert_indices in enumerate(chunks):
-    #             vert_set = vert_indices.copy()
-    #             for vert_index in vert_indices:
-    #                 vert = bm.verts[vert_index]
-    #                 if utils.math.is_point_on_line_segment(vert.co, vec_a, vec_b):
-    #                     edge_splits[g].append(vert.index)
-    #                     vert_set.difference_update(set([vert.index]))
-    #                     found_at = i
-    #                     break
-    #             if found_at is not None:
-    #                 break
-                
-    #         if found_at is not None:
-    #             for vert_index in vert_set:
-    #                 edge_splits[g].append(vert_index)
-    #             del chunks[found_at]
-
-    #         vert_indices = edge_splits[g]
-    #         vert_indices.sort(key=lambda p :distance_sq(vec_a, bm.verts[p].co))
-
-    #         if g == 0 and num_segments >= 2 and edges[g].is_boundary:
-    #             vert_indices.reverse()
-
-
-    #         for i, vert_index in enumerate(vert_indices):
-    #             vert: BMVert = bm.verts[vert_index]
-    #             # if i != 0 and i != len(vert_indices)-1:
-    #             #     next_vert = bm.verts[vert_indices[i + 1]]
-    #             # else:
-    #             #     next_vert = vert_a if i == 0 else vert_b
-
-
-    #             points_along_edge = points[g]
-    #             if i < len(points_along_edge) and vert.index not in moved_verts:
-    #                 for loop in vert.link_loops:
-    #                     face = loop.face
-    #                     to_2d_coords_mat = utils.math.basis_mat_from_plane_normal(face.normal)
-    #                     vert_loop = utils.mesh.get_face_loop_for_vert(face, vert)
-    #                     coords_2d = (to_2d_coords_mat @ vert_loop.vert.co).to_2d()
-    #                     # print(f"vert: {vert_loop.vert.index} 2d_co before: {coords_2d}")
-    #                     # print(f"ovtehr vert: {vert_loop.edge.other_vert(vert_loop.vert).index}")
-                        
-    #                     vert_loop[uv_layer].uv = coords_2d
-
-    #                 vert.co = self.world_inv @ points_along_edge[i]
-    #                 moved_verts.add(vert.index) 
-
-    #     if bpy.context.tool_settings.use_mesh_automerge:
-    #         geom_split = ret["geom_split"]
-    #         verts_to_merge = {vert for edge in geom_split if isinstance(edge, BMEdge) for vert in edge.verts}
-    #         threshold = bpy.context.tool_settings.double_threshold
-    #         bmesh.ops.remove_doubles(bm, verts=list(verts_to_merge), dist=threshold)
-    #     mesh = context.active_object.data
-    #     bmesh.update_edit_mesh(mesh)
-#endregion
 
     def update_loops(self):
         if not self.active_object.bm.is_valid or self.loop_data is None:
@@ -391,6 +286,7 @@ class FastLoopCommon(Actions, MultiObjectEditing):
     def set_flow_enabled():
         return common.prefs().set_edge_flow_enabled
 
+
     @staticmethod
     def set_flow():
         prefs = common.prefs()
@@ -399,6 +295,7 @@ class FastLoopCommon(Actions, MultiObjectEditing):
         min_angle = prefs.min_angle
 
         bpy.ops.mesh.set_edge_flow('INVOKE_DEFAULT', tension=tension, iterations=iterations, min_angle=min_angle)
+   
    
     @staticmethod
     def ensure_bmesh_(edit_object_data):

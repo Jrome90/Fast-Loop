@@ -31,24 +31,23 @@ class MultiObjectEditing():
 
     active_object: EditObjectData = None
     selected_editable_objects: Dict[str, EditObjectData] = {}
-
     _world_mat: Matrix = None
+
     @property
     def world_mat(self):
         return self.active_object.world_matrix
     
-    @world_mat.setter
-    def world_mat(self, value):
-       self.active_object.world_matrix = value
+    # @world_mat.setter
+    # def world_mat(self, value):
+    #    self.active_object.world_matrix = value
 
-    _world_inv: Matrix = None
     @property
     def world_inv(self):
         return self.active_object.inv_world_matrix
     
-    @world_inv.setter
-    def world_inv(self, value):
-       self.active_object.inv_world_matrix = value
+    # @world_inv.setter
+    # def world_inv(self, value):
+    #    self.active_object.inv_world_matrix = value
 
     
     def add_selected_editable_objects(self, context: Context):

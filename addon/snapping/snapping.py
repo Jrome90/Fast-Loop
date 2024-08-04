@@ -256,11 +256,7 @@ class SnapContext(SnapPointsMixin):
     
 
     def do_snap_objects(self, bl_objects, mvals, mvals_win=None) -> None | Tuple :
-        # inside_toolbar = utils.ui.inside_toolbar(mvals)
-        # inside_npanel = utils.ui.inside_npanel(mvals)
-        # inside_gizmo = utils.ui.inside_navigation_gizmo(mvals)
-        # if inside_toolbar or inside_npanel or inside_gizmo:
-        #     return None, None, None
+       
         if not bl_objects:
             pass
         else:
@@ -285,11 +281,6 @@ class SnapContext(SnapPointsMixin):
 
 
     def do_snap_object(self,bl_object: Object, mvals, mvals_win=None):
-        # inside_toolbar = utils.ui.inside_toolbar(mvals)
-        # inside_npanel = utils.ui.inside_npanel(mvals)
-        # inside_gizmo = utils.ui.inside_navigation_gizmo(mvals)
-        # if inside_toolbar or inside_npanel or inside_gizmo:
-        #     return None, None, None
 
         if bl_object is None:
             pass

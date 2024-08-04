@@ -1,11 +1,6 @@
 from collections import namedtuple
 import bpy
 
-from . import common
-from . import ui
-from .. import utils
-
-
 
 def cursor_warp(event: bpy.types.Event):
     '''
@@ -120,41 +115,3 @@ def set_ls_option(option, value)-> bool:
             setattr(context.window_manager.ls_options, option, value)
             return True
     return False
-
-
-def get_context_overrides(*objects, area=None):
-
-    def get_base_context(area):
-        window = bpy.context.window_manager.windows[0]
-        screen_area = None
-        area_region = None
-        area_space = None
-        if area is None:
-            for area in window.screen.areas:
-                if area.type == 'VIEW_3D':
-                    screen_area = area
-                    for region in area.regions:
-                        if region.type == 'WINDOW':
-                            area_region = region
-                    for space in area.spaces:
-                        if space.type == 'VIEW_3D':
-                            area_space = space
-        else:
-            if area.type == 'VIEW_3D':
-                screen_area = area
-                for region in area.regions:
-                    if region.type == 'WINDOW':
-                        area_region = region
-                for space in area.spaces:
-                    if space.type == 'VIEW_3D':
-                        area_space = space
-                
-
-        return {'window': window, 'screen': window.screen, 'area' : screen_area, 'region': area_region, 'space': area_space}
-
-    context = get_base_context(area)
-    context['object'] = objects[0]
-    context['active_object'] = objects[0]
-    context['selected_objects'] = objects
-    context['selected_editable_objects'] = objects
-    return context

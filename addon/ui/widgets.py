@@ -6,8 +6,18 @@ from gpu import state
 from gpu_extras.batch import batch_for_shader
 from mathutils import Vector
 
-from ... bl_ui_widgets import bl_ui_widget, bl_ui_drag_panel, bl_ui_button
+from ... bl_ui_widgets import bl_ui_drag_panel, bl_ui_button
+from ... bl_ui_widgets.bl_ui_widget import BL_UI_Widget
+from ... bl_ui_widgets.bl_ui_label import BL_UI_Label
+
 from ...signalslot.signalslot import Signal
+
+import bpy
+
+from ...signalslot.signalslot import Slot
+
+
+
 from .. import utils
 
 
@@ -24,7 +34,7 @@ def get_ls_prop_enum(prop):
     return value
 
 
-class BL_UI_SliderMulti(bl_ui_widget.BL_UI_Widget):
+class BL_UI_SliderMulti(BL_UI_Widget):
     
     def __init__(self, context, x, y, width, height, text_format=None):
         super().__init__(x, y, width, height)
@@ -709,17 +719,6 @@ class BL_UI_SliderMulti(bl_ui_widget.BL_UI_Widget):
 
 
 # The code below is hacky and is not suitable for general use.
-import blf
-import bpy
-import gpu
-
-from gpu_extras.batch import batch_for_shader
-
-from ...signalslot.signalslot import Slot
-
-from ... bl_ui_widgets.bl_ui_widget import BL_UI_Widget
-from ... bl_ui_widgets.bl_ui_label import BL_UI_Label
-
 
 def get_fl_options():
     return utils.ops.options()
@@ -1166,7 +1165,7 @@ class VLayoutDragPanel(bl_ui_drag_panel.BL_UI_Drag_Panel):
 
     def add_title(self, context, title_text=None):
         y_offset = 0 #-40
-        self.title_bar: bl_ui_widget = Title_Bar(context, self, self.x_screen , self.y_screen, self.width + 8 * self.scale, 24, title_text)
+        self.title_bar: BL_UI_Widget = Title_Bar(context, self, self.x_screen , self.y_screen, self.width + 8 * self.scale, 24, title_text)
         self.title_bar._bg_color = (1.,1.,1., 0.05)
 
 
@@ -1577,7 +1576,7 @@ class Button(bl_ui_button.BL_UI_Button):
 
 
 
-class Title_Bar(bl_ui_widget.BL_UI_Widget):
+class Title_Bar(BL_UI_Widget):
     def __init__(self, context, parent_widget, x, y, width, height, title_text, minimize_button=True, pin_button=True):
         
         super().__init__(x, y, width, height)

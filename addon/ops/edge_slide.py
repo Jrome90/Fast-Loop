@@ -5,11 +5,12 @@ import bpy, bmesh
 from bmesh.types import BMEdge, BMVert
 from mathutils import Vector
 
-from .multi_object_edit import MultiObjectEditing
 from .. import utils
 from .. utils.observer import Subject
 from .. utils.ops import get_m_button_map as btn, get_undo_keymapping, match_event_to_keymap
 from .. utils.edge_slide import EdgeVertexSlideData, VertSlideType, calculate_edge_slide_directions
+
+from .multi_object_edit import MultiObjectEditing
 from .. snapping.snapping import SnapContext
 
 from ..ui.widgets import (VLayoutPanel, VLayoutDragPanel, make_hotkey_label)
@@ -201,7 +202,6 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
         return {'FINISHED'}
 
 
-    @utils.safety.decorator
     def modal(self, context, event):
         
         if context.mode != 'EDIT_MESH':
@@ -412,6 +412,7 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
         return None
 
+
     def edge_slide(self, context, mouse_coords, even, keep_shape):
         face_slide = False
         mouse_co = Vector(mouse_coords)
@@ -552,6 +553,7 @@ class EdgeSlideOperator(bpy.types.Operator, Subject, MultiObjectEditing):
 
         mesh = self.active_object.data
         bmesh.update_edit_mesh(mesh)
+    
     
     @staticmethod
     def ensure_bmesh_(edit_object_data):

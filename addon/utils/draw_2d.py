@@ -200,7 +200,6 @@ def draw_debug_text_border(position:Vector, font_size, line_color=(1, 1, 1, 1), 
     height =  int(font_size * scale)
     width = font_size * len(text) * (0.60)
 
-    
     width *= scale
     top_left = position + Vector((0, height))
     top_right = position + Vector((width, height))

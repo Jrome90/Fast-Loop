@@ -26,50 +26,66 @@ class LoopCollection(metaclass=ABCMeta):
     def set_owner(self, owner):
         self._owner = owner
 
+
     def get_owner(self):
         return self._owner
+
 
     def get_active_loop(self):
        return self._active_loop
 
+
     def set_active_loop(self, value):
         self._active_loop = value
     
+
     def set_other_loop(self, active_loop):
         self._other_loop = active_loop.link_loop_next.link_loop_next
     
+
     def get_other_loop(self):
         return self._other_loop
+
 
     def get_active_face(self):
        return self._active_face
 
+
     def set_active_face(self, value):
         self._active_face = value
        
+
     def get_loops(self):
        return self._loops
+
 
     def set_loop_data(self, value: List):
         self._loops = value
     
+
     def get_is_loop(self):
         return self._is_loop
+
 
     def set_is_loop(self, value: bool):
         self._is_loop = value
     
+
     def get_shortest_edge_len(self):
         return self._shortest_len
+
 
     def set_shortest_edge_len(self, value):
         self._shortest_len = value
     
+
     def get_active_loop_endpoints(self):
         return self._loop_endpoints
     
+
     def set_active_loop_endpoints(self, start, end):
         self._loop_endpoints = LoopEndpoints(start, end)
+    
     
     def is_single_loop(self):
         return len(self._loops) == 1
@@ -100,6 +116,7 @@ class EdgeDataFactory():
         loops = []
         data = None
         active_loop = None
+
 
         def get_loop_endpoints():
             start = context.world_mat @ active_loop.vert.co

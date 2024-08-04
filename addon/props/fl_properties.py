@@ -39,7 +39,6 @@ class SubProps(BaseProps):
 
     
 class CommonProps(BaseProps):
-    flipped = False
     @property
     def flipped(self):
         return self.fast_loop_options.flipped
@@ -48,7 +47,6 @@ class CommonProps(BaseProps):
     def flipped(self, value):
         self.fast_loop_options.flipped = value
 
-    use_even = False
     @property
     def use_even(self):
         return self.fast_loop_options.use_even
@@ -57,7 +55,6 @@ class CommonProps(BaseProps):
     def use_even(self, value):
         self.fast_loop_options.use_even = value
     
-    cancelled = False
     @property
     def cancelled(self):
         return self.fast_loop_options.cancel
@@ -74,7 +71,6 @@ class CommonProps(BaseProps):
     def mirrored(self, value):
         self.fast_loop_options.mirrored = value
 
-    # perpendicular = False
     @property
     def perpendicular(self):
         return self.fast_loop_options.perpendicular
@@ -117,7 +113,6 @@ class MultiLoopProps(BaseProps):
     def loop_space_value(self, value):
         self.fast_loop_options.loop_space_value = str(value)
     
-    # use_multi_loop_offset = False
     @property
     def use_multi_loop_offset(self):
         return self.fast_loop_options.use_multi_loop_offset
@@ -135,7 +130,6 @@ class SnapProps(BaseProps):
     def use_snap_points(self, value):
         self.fast_loop_options.use_snap_points = value
 
-    # snap_divisions = 2
     @property
     def snap_divisions(self):
         return self.fast_loop_options.snap_divisions
@@ -144,7 +138,6 @@ class SnapProps(BaseProps):
     def snap_divisions(self, value):
        self.fast_loop_options.snap_distance = value
     
-    # lock_snap_points = False
     @property
     def lock_snap_points(self):
         return self.fast_loop_options.lock_snap_points

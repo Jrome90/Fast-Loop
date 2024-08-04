@@ -354,8 +354,9 @@ class AddonPrefs(bpy.types.AddonPreferences):
 
     def draw_general(self, context, layout):
         layout.prop(self, "use_spacebar", toggle=True)  
+        if not utils.common.min_ver_4_2():
+            layout.operator("ui.reset_operator", text="Click this if an error occured while a fast Loop operator was running, and now it wont start.")
 
-        layout.operator("ui.reset_operator", text="Click this if an error occured while a fast Loop operator was running, and now it wont start.")
 
     def draw_display_settings(self, context, layout):
         layout.label(text="General")
@@ -437,6 +438,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
         km_name = 'Mesh'
         return km_name
 
+
     @staticmethod
     def draw_km(kc, km, layout):
         layout.context_pointer_set("keymap", km)
@@ -468,6 +470,7 @@ class AddonPrefs(bpy.types.AddonPreferences):
             op.active_keymap = action
             op.operator = "FL_OT_fast_loop"
     
+
     @staticmethod
     def get_edge_flow_version()-> Tuple:
         enabled_addons = {addon.module for addon in bpy.context.preferences.addons}

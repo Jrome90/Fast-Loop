@@ -5,7 +5,7 @@ from typing import *
 import bpy 
 
 from . modal_keymapping import ModalKeymap
-from .. utils.math import cm_to_meters, mm_to_meters, meters_to_cm, meters_to_mm
+from .. utils.math import cm_to_meters, mm_to_meters
 
 
 # SEMI_COLON ;.

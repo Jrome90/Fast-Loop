@@ -3,7 +3,7 @@ from . import ops
 from . import tools
 from . import ui
 from . ui import gizmos 
-from . import keymaps
+# from . import keymaps
 
 modules = (
     props,

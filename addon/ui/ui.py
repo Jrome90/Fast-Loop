@@ -8,6 +8,7 @@ class FL_UL_Percentages(bpy.types.UIList):
         super().__init__()
         self.use_filter_show =  False
     
+
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             col = layout.column()

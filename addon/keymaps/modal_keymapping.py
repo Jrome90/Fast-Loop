@@ -93,8 +93,7 @@ def save_keymap(operator_id, modal_keymap: ModalKeymap=None):
     else:
         data = {operator_id : 
             {"Even": ('E', 'PRESS', False, False, False),
-            "Flip": ('F', 'PRESS', False, False, False),
-            # "Midpoint": ('C', 'PRESS', False, False, False), 
+            "Flip": ('F', 'PRESS', False, False, False), 
             "Mirrored": ('M', 'PRESS', False, False, False),
             "Perpendicular": ('/', 'PRESS', False, False, False),
             "Multi Loop Offset": ('O', 'PRESS', False, False, False),
