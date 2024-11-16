@@ -477,4 +477,9 @@ class AddonPrefs(bpy.types.AddonPreferences):
         for addon in addon_utils.modules():
             if addon.__name__ in enabled_addons and addon.__name__ in {'EdgeFlow'}:
                 return addon.bl_info['version']
+            
+            extension_name = str(addon.__name__).split(".", 3)
+            if len(extension_name) == 3 and addon.__name__ in enabled_addons and extension_name[2] in {'EdgeFlow'}:
+                return addon.bl_info['version']
+
         return None
