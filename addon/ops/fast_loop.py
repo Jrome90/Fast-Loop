@@ -371,7 +371,13 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     
     def update(self, element_index, nearest_co=None):
         self.force_offset_value = -1
-        bm = self.ensure_bmesh_(self.active_object)
+        
+        bm = None
+        if not self.snap_enabled or self.is_snapping:
+            bm = self.ensure_bmesh_(self.active_object)
+        
+        if bm is None or (not bm.is_valid):
+            return 
         
         bm.edges.ensure_lookup_table()
         with suppress(IndexError, AttributeError):
@@ -455,7 +461,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
                 return {'RUNNING_MODAL'}
         # Prevent an update if snapping (holding ctrl) and user then pressed z to undo.
         # Otherwise the object data is invalid, and it will raise an exception.
-        if self.snap_enabled and self.is_snapping and not ops.match_event_to_keymap(event, ops.get_undo_keymapping()):
+        if (self.snap_enabled and self.is_snapping) and not (ops.match_event_to_keymap(event, ops.get_undo_keymapping())):
             try:
                 self.update(self.frozen_edge_index, self.snap_position)
             except ReferenceError:

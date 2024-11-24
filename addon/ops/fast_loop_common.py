@@ -302,7 +302,7 @@ class FastLoopCommon(Actions, MultiObjectEditing):
         obj: Object = edit_object_data.get_bl_object
 
         bm = edit_object_data.bm
-        if bm is None or not bm.is_valid:
+        if bm is None or not bm.is_valid and (obj is not None):
             obj.update_from_editmode()
             mesh = obj.data
             edit_object_data.bm = bmesh.from_edit_mesh(mesh)
