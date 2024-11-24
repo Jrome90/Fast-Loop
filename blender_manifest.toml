@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
-id = "fast_loop"
-version = "2.1.0"
+id = "Fast_Loop"
+version = "2.1.1"
 name = "Fast Loop"
 tagline = "Quickly insert loop cuts at the mouse position with a preview"
 maintainer = "Jrome"
@@ -9,7 +9,7 @@ type = "add-on"
 
 website = "https://github.com/Jrome90/Fast-Loop"
 
-tags = ["Mesh"]
+tags = ["Mesh", "Modeling"]
 
 blender_version_min = "4.2.0"
 
