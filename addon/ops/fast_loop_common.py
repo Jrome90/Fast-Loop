@@ -9,7 +9,7 @@ import bpy, bmesh
 from bpy.types import Object
 
 from .. utils import common, draw_3d, mesh, math, ops
-from .. props import addon
+from .. props import addon, prefs
 from ..props.fl_properties import CommonProps
 from .. snapping.snapping import SnapContext
 
@@ -108,6 +108,10 @@ class FastLoopCommon(Actions, MultiObjectEditing):
 
     
     def setup(self, context):
+        # Reset and then cache the found version of edge flow
+        prefs.AddonPrefs.edge_flow_version = None
+        common.prefs().get_edge_flow_version()
+
         # For blender 4.0
         context.tool_settings.snap_elements_tool = 'DEFAULT'
 

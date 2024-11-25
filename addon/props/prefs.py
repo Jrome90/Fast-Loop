@@ -19,6 +19,8 @@ def keymap_changed(self, context, keymap_event):
 class AddonPrefs(bpy.types.AddonPreferences):
     bl_idname =  base_package
 
+    edge_flow_version: Tuple = None
+
     on_hud_scale_changed = Signal()
     on_display_panel_pos_changed = Signal()
 
@@ -471,15 +473,20 @@ class AddonPrefs(bpy.types.AddonPreferences):
             op.operator = "FL_OT_fast_loop"
     
 
+
+
     @staticmethod
     def get_edge_flow_version()-> Tuple:
-        enabled_addons = {addon.module for addon in bpy.context.preferences.addons}
-        for addon in addon_utils.modules():
-            if addon.__name__ in enabled_addons and addon.__name__ in {'EdgeFlow'}:
-                return addon.bl_info['version']
-            
-            extension_name = str(addon.__name__).split(".", 3)
-            if len(extension_name) == 3 and addon.__name__ in enabled_addons and extension_name[2] in {'EdgeFlow'}:
-                return addon.bl_info['version']
-
-        return None
+        if AddonPrefs.edge_flow_version is None:
+            enabled_addons = {addon.module for addon in bpy.context.preferences.addons}
+            for addon in addon_utils.modules():
+                if addon.__name__ in enabled_addons and addon.__name__ in {'EdgeFlow'}:
+                   AddonPrefs.edge_flow_version = addon.bl_info['version']
+                   break
+                
+                extension_name = str(addon.__name__).split(".", 3)
+                if len(extension_name) == 3 and addon.__name__ in enabled_addons and extension_name[2] in {'EdgeFlow'}:
+                    AddonPrefs.edge_flow_version = addon.bl_info['version']
+                    break
+                
+        return AddonPrefs.edge_flow_version
