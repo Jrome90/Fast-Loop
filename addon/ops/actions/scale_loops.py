@@ -41,8 +41,9 @@ class ScaleLoopsAction(DrawLoopsMixin, BaseAction):
     def update(self):
         if self._mouse_updated:
             self.context.last_numeric_input_results = None
+            self.context.used_custom_scaled_value = self._mouse_updated
             self._mouse_updated = False
-
+        
 
     def handle_input(self, bl_context, bl_event):
        
@@ -67,7 +68,7 @@ class ScaleLoopsAction(DrawLoopsMixin, BaseAction):
         delta_x = bl_event.mouse_x - bl_event.mouse_prev_x
         delta_x *= 0.001 if bl_event.shift else 0.01
         self.context.scale += delta_x
-        self.update_scale(self.context.scale)
+        #self.update_scale(self.context.scale)
         if self.context.update_loops():
             props = self.context.get_all_props_no_snap()
             self.context.edge_data = EdgeData().populate_data(self.context.loop_data, props)

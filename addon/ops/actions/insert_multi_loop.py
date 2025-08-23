@@ -8,8 +8,6 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
     Mode = Mode.MULTI_LOOP
 
     def __init__(self, context) -> None:
-        if context.segments == 1:
-            context.segments = 2
         context.edge_pos_algorithm = ComputeEdgePostitonsMultiAlgorithm()
         super().__init__(context)
 
@@ -19,6 +17,11 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
         self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
 
         self.context.main_panel_hud.layout_widgets()
+
+        if self.context.segments == 1:
+            self.context.segments = 2
+        self.SetScaleValueForNumSegs()
+
         super().enter()
 
     def exit(self):
@@ -38,6 +41,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
         elif n is not None:
             self.context.segments = n
             self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
+            self.SetScaleValueForNumSegs()
             handled = True
 
         if not handled:
@@ -56,7 +60,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
                 self.context.switch_action(insert_single_loop.InsertSingleLoopAction(self.context))
             else:
                 self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
-                self.context.scale = self.CalculateDefaultScaleValue()
+                self.SetScaleValueForNumSegs()
 
             handled = True
 
@@ -64,7 +68,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
             self.update()
             self.context.segments += 1
             self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
-            self.context.scale = self.CalculateDefaultScaleValue()
+            self.SetScaleValueForNumSegs()
             handled = True
 
         elif modal_event == "Loop Spacing":
@@ -82,4 +86,9 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
     
     
     def CalculateDefaultScaleValue(self) -> float:
-        return 1 - (2/(self.context.segments + 1))
+        return 1/(self.context.segments + 1) #1 - (2/(self.context.segments + 1))
+    
+    def SetScaleValueForNumSegs(self):
+        if self.context.last_numeric_input_results is None and not self.context.used_custom_scaled_value:
+            self.context.scale = self.CalculateDefaultScaleValue()
+            self.context.multi_loop_props.loop_space_value = f"{100*self.context.scale:.3g} %"

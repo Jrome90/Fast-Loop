@@ -69,6 +69,7 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
     event_handler = None
     last_numeric_input_results: NumericInputResults = None
     last_numeric_dist_value = None
+    used_custom_scaled_value = False
 
     slider_widget: BL_UI_SliderMulti = None
 
@@ -408,14 +409,13 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
         if last_numeric_results is not None:
             value  = last_numeric_results.value
-            edge_len = 0.0
             if last_numeric_results.is_distance:
+                edge_len = 0.0
                 if self.common_props.use_even or self.multi_loop_props.use_multi_loop_offset:
                     edge_len = self.loop_data.get_shortest_edge_len()
                 else:
                     edge_len = self.current_edge.calc_length()
-                edge_len = (value / edge_len) * (self.common_props.segments - 1.0) if edge_len != 0 else 0
-                return edge_len
+                return (value / edge_len) if edge_len != 0 else 0
             else:
                 return value * 0.01
         else:

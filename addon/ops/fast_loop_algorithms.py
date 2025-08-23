@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC
+from enum import Enum
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .fast_loop_common import FastLoopCommon
@@ -11,10 +12,19 @@ from .. import utils
 
 from .fast_loop_helpers import Mode, mode_enabled
 
+class EdgePosAlgorithm(Enum):
+    NONE = 0
+    SINGLE = 4
+    MULTI_LOOP = 8
+    POSITION_OVERRIDE = 16
 
 class ComputeEdgePostitonsStrategy(ABC):
     @staticmethod
     def execute(context: FastLoopCommon, props: AllPropsNoSnap, start, end, factor, flipped):
+        pass
+
+    @staticmethod
+    def ActiveAlgorithm():
         pass
 
 
@@ -86,6 +96,10 @@ class ComputeEdgePostitonsSingleAlgorithm(ComputeEdgePostitonsStrategy):
                 is_reversed = True
 
         return points, is_reversed
+    
+    @staticmethod
+    def ActiveAlgorithm():
+        return EdgePosAlgorithm.SINGLE
 
 
 class ComputeEdgePostitonsMultiAlgorithm(ComputeEdgePostitonsStrategy):
@@ -140,17 +154,17 @@ class ComputeEdgePostitonsMultiAlgorithm(ComputeEdgePostitonsStrategy):
         origin = start.lerp(end, factor)
         c = utils.math.clamp(0, ml_props.scale, 1)
         init_scale_factor = 0.0
-        if context.segments >= 2:
+        # if context.segments >= 2:
             # c2 = 1 - (2/(context.segments + 1)) #1 - (1 / (((context.segments - 1) /2) + 1))
-            init_scale_factor = utils.math.remap(0.0, 1.0, 0.0, 1.0 + (2.0/( context.segments - 1.0)), c)
+            # init_scale_factor = utils.math.remap(0.0, 1.0, 0.0, 1.0 + (2.0/( context.segments - 1.0)), c)
         # orig_cos = []
         # ab_cos = []
         # ab_lengths = []
         # if not context.use_multi_loop_offset:
             # for j in range(0, n):
                 
-        # value = 0.1
-        # init_scale_factor = ((value/edge_len) * (context.segments + 1.0)) 
+        value = ml_props.scale
+        init_scale_factor = ((value) * (context.segments + 1.0)) 
         # init_scale_factor = utils.math.remap(0.0, edge_len, 0.0, context.shortest_edge_len, init_scale_factor)
         mirrored = props.common.mirrored
 
@@ -273,6 +287,10 @@ class ComputeEdgePostitonsMultiAlgorithm(ComputeEdgePostitonsStrategy):
                     points.reverse()
                     
         return points, is_reversed
+    
+    @staticmethod
+    def ActiveAlgorithm():
+        return EdgePosAlgorithm.MULTI_LOOP
 
 def scale_point_along_edge(point, start, end, scale_fac):
             return utils.math.scale_points_along_line([point], start, end, scale_fac)[0]
@@ -364,9 +382,18 @@ class ComputeEdgePostitonsOverrideAlgorithm(ComputeEdgePostitonsStrategy):
                 new_factor = (loop_cut.distance * unit_scale) / vec_len
 
             m_factor = 1-new_factor
-            if flipped and not perpendicular:
+            
+
+            if flipped and not perpendicular and not props.common.flipped:
                 new_factor = 1-new_factor
                 m_factor = 1-m_factor
+
+            # if props.common.flipped and not perpendicular and not flipped:
+            #     start, end = end, start
+            #     new_factor = 1-new_factor
+            #     m_factor = 1-m_factor
+
+
                 
             final = start.lerp(end, utils.math.clamp(0.0, new_factor, 1.0))
 
@@ -403,7 +430,12 @@ class ComputeEdgePostitonsOverrideAlgorithm(ComputeEdgePostitonsStrategy):
                 points.extend(mirrored_points)
                 points.reverse()
        
-        if flipped:
-            points.reverse()
+        # if props.common.flipped:
+        #     points.reverse()
 
         return points, False
+    
+
+    @staticmethod
+    def ActiveAlgorithm():
+        return EdgePosAlgorithm.POSITION_OVERRIDE

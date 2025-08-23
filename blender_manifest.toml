@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "Fast_Loop"
-version = "2.1.2"
+version = "2.1.3"
 name = "Fast Loop"
 tagline = "Quickly insert loop cuts at the mouse position with a preview"
 maintainer = "Jrome"

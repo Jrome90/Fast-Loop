@@ -20,8 +20,8 @@ class RP_GGT_SnapGizmoGroup(GizmoGroup):
 
     on_snap_update = Signal(args=['[snap_location]'])
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         self.snap_gizmo = None
 

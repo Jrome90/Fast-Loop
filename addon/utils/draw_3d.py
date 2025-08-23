@@ -40,11 +40,18 @@ def draw_points(points, color=(1.0, 1.0, 0.0, 1), size=3.0, depth_test=False):
 
     if  depth_test:
         state.depth_test_set('LESS_EQUAL')
-   
-    shader = gpu.shader.from_builtin('UNIFORM_COLOR')
-    batch = batch_for_shader(shader, 'POINTS', {"pos": points})
-    shader.bind()
-    shader.uniform_float("color", color)
+
+    if bpy.context.preferences.system.gpu_backend in ("VULKAN"):
+         shader = gpu.shader.from_builtin('POINT_FLAT_COLOR')
+         batch = batch_for_shader(shader, 'POINTS', {"pos": points, "color" : [color] * len(points)})
+         shader.bind()
+         shader.uniform_float("size", size)
+    else:
+        shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        batch = batch_for_shader(shader, 'POINTS', {"pos": points})
+        shader.bind()
+        shader.uniform_float("color", color)
+
 
     batch.draw(shader)
 
