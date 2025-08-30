@@ -7,9 +7,9 @@ from ..fast_loop_helpers import Mode
 class InsertMultiLoopAction(insert_loop_base.InsertAction):
     Mode = Mode.MULTI_LOOP
 
-    def __init__(self, context) -> None:
+    def __init__(self, context, insert_at_center=False) -> None:
         context.edge_pos_algorithm = ComputeEdgePostitonsMultiAlgorithm()
-        super().__init__(context)
+        super().__init__(context, insert_at_center)
 
     
     def enter(self):
@@ -35,7 +35,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
         'NUMPAD_1': 1, 'NUMPAD_2': 2, 'NUMPAD_3': 3, 'NUMPAD_4': 4, 'NUMPAD_5': 5, 'NUMPAD_6': 6, 'NUMPAD_7': 7, 'NUMPAD_8': 8, 'NUMPAD_9': 9}
         n = num_lookup.get(bl_event.type, None)
         if n == 1:
-            self.context.switch_action(insert_single_loop.InsertSingleLoopAction(self.context))
+            self.context.switch_action(insert_single_loop.InsertSingleLoopAction(self.context, insert_at_center=self.insert_at_center))
             handled = True
 
         elif n is not None:
@@ -57,7 +57,7 @@ class InsertMultiLoopAction(insert_loop_base.InsertAction):
             self.context.segments -= 1
             if self.context.segments == 1:
                 self.update()
-                self.context.switch_action(insert_single_loop.InsertSingleLoopAction(self.context))
+                self.context.switch_action(insert_single_loop.InsertSingleLoopAction(self.context, insert_at_center=self.insert_at_center))
             else:
                 self.context.main_panel_hud.set_title_bar_text(f"Multi [{self.context.segments}]")
                 self.SetScaleValueForNumSegs()

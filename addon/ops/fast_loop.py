@@ -19,7 +19,6 @@ from .fast_loop_common import FastLoopCommon, CurrentPos
 from .fast_loop_helpers import (Mode, get_active_mode, mode_enabled)
 
 from .actions.insert_single_loop import InsertSingleLoopAction
-from .actions.insert_loop_base import InsertAction
 
 from ..snapping.snapping  import SnapContext
 

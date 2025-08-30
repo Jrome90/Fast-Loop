@@ -9,10 +9,10 @@ from ..actions.insert_loop_base import InsertAction
 class InsertSingleLoopAction(InsertAction):
     Mode = Mode.SINGLE
 
-    def __init__(self, context) -> None:
+    def __init__(self, context, insert_at_center=False) -> None:
         context.segments = 1
         context.edge_pos_algorithm = ComputeEdgePostitonsSingleAlgorithm()
-        super().__init__(context)
+        super().__init__(context, insert_at_center=insert_at_center)
 
 
     def enter(self):
@@ -35,7 +35,7 @@ class InsertSingleLoopAction(InsertAction):
         n = num_lookup.get(bl_event.type, None)
         if n is not None and n != 1:
             self.context.segments = n
-            self.context.switch_action(insert_multi_loop.InsertMultiLoopAction(self.context))
+            self.context.switch_action(insert_multi_loop.InsertMultiLoopAction(self.context, insert_at_center=self.insert_at_center))
 
             handled = True
 
@@ -50,7 +50,7 @@ class InsertSingleLoopAction(InsertAction):
         
         if modal_event == "Increase Loop Count":
             self.update()
-            self.context.switch_action(insert_multi_loop.InsertMultiLoopAction(self.context))
+            self.context.switch_action(insert_multi_loop.InsertMultiLoopAction(self.context, insert_at_center=self.insert_at_center))
             handled = True
 
         if not handled:
