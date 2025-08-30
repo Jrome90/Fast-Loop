@@ -19,6 +19,7 @@ from .fast_loop_common import FastLoopCommon, CurrentPos
 from .fast_loop_helpers import (Mode, get_active_mode, mode_enabled)
 
 from .actions.insert_single_loop import InsertSingleLoopAction
+from .actions.insert_loop_base import InsertAction
 
 from ..snapping.snapping  import SnapContext
 
@@ -371,7 +372,6 @@ class FastLoopOperator(bpy.types.Operator, FastLoopCommon):
 
     
     def update(self, element_index, nearest_co=None):
-        self.force_offset_value = -1
         
         bm = None
         if not self.snap_enabled or self.is_snapping:

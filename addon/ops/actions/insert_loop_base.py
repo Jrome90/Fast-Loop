@@ -22,6 +22,7 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
     Mode = Mode.NONE
     def __init__(self, context) -> None:
         self.context: FastLoopOperator = context
+        self.insert_at_center = False
     
 
     def enter(self):
@@ -33,6 +34,9 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
 
 
     def update(self):
+        if not self.insert_at_center:
+            self.context.force_offset_value = -1
+
         current_edge = self.context.current_edge
         if current_edge is None or not current_edge.is_valid or self.context.current_face_index is None:
             return
@@ -142,6 +146,15 @@ class InsertAction(DrawLoopsMixin, DrawDirectionArrowMixin, BaseAction, metaclas
         elif event.type in {"RIGHT_BRACKET"} and event.value == 'RELEASE':
             options().use_opposite_snap_dist = not options().use_opposite_snap_dist
             self.context.snap_context.force_display_update(self.context.active_object)
+            handled = True
+
+        elif event.type in {"C"} and event.value == 'PRESS':
+            self.insert_at_center = not self.insert_at_center
+
+            if self.context.force_offset_value == -1:
+                self.context.force_offset_value = 0.5
+            else:
+               self.context.force_offset_value = -1
             handled = True
 
         if self.context.main_panel_hud.handle_event(bl_event):
